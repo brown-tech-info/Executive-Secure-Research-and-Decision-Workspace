@@ -1,0 +1,209 @@
+﻿{
+  "displayName": "ExecWS-ApprovedToArchive",
+  "description": "Lifecycle flow: manually triggered archive action. Moves a specified document from Approved to Archive library, applies retention label, and notifies Compliance. LLD Section 7.3.",
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "$connections":       { "defaultValue": {}, "type": "Object" },
+      "$authentication":    { "defaultValue": {}, "type": "SecureObject" },
+      "SiteUrl":            { "defaultValue": "{{SITE_URL}}", "type": "String" },
+      "RetentionLabelName": { "defaultValue": "{{RETENTION_LABEL_NAME}}", "type": "String",
+                              "metadata": { "description": "Name of the Purview retention label to apply to archived documents" } }
+    },
+    "triggers": {
+      "Manually_trigger": {
+        "type": "Request",
+        "kind": "Button",
+        "inputs": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "DocumentId": {
+                "type": "number",
+                "title": "Document ID",
+                "description": "The SharePoint list item ID of the document to archive from the Approved library."
+              }
+            },
+            "required": ["DocumentId"]
+          }
+        }
+      }
+    },
+    "actions": {
+      "Get_Approved_file_properties": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetFileItem"
+          },
+          "parameters": {
+            "dataset": "{{SITE_URL}}",
+            "table":   "Approved",
+            "id":      "@triggerBody()['DocumentId']"
+          },
+          "authentication": "@parameters('$authentication')"
+        },
+        "runAfter": {}
+      },
+      "Verify_LifecycleState_is_Approved": {
+        "type": "If",
+        "expression": {
+          "and": [
+            {
+              "equals": [
+                "@body('Get_Approved_file_properties')?['ExecWS_LifecycleState']?['Value']",
+                "Approved"
+              ]
+            }
+          ]
+        },
+        "actions": {
+          "Get_file_content_for_archive": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                "connectionName": "shared_sharepointonline",
+                "operationId": "GetFileContent"
+              },
+              "parameters": {
+                "dataset": "{{SITE_URL}}",
+                "id":      "@body('Get_Approved_file_properties')?['{Identifier}']"
+              },
+              "authentication": "@parameters('$authentication')"
+            }
+          },
+          "Create_file_in_Archive": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                "connectionName": "shared_sharepointonline",
+                "operationId": "CreateFile"
+              },
+              "parameters": {
+                "dataset":    "{{SITE_URL}}",
+                "folderPath": "/Archive",
+                "name":       "@body('Get_Approved_file_properties')?['FileLeafRef']",
+                "body":       "@body('Get_file_content_for_archive')"
+              },
+              "authentication": "@parameters('$authentication')"
+            },
+            "runAfter": { "Get_file_content_for_archive": ["Succeeded"] }
+          },
+          "Update_Archive_metadata": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                "connectionName": "shared_sharepointonline",
+                "operationId": "PatchFileItem"
+              },
+              "parameters": {
+                "dataset": "{{SITE_URL}}",
+                "table":   "Archive",
+                "id":      "@body('Create_file_in_Archive')?['ID']",
+                "item": {
+                  "ExecWS_DocumentType":              "@body('Get_Approved_file_properties')?['ExecWS_DocumentType']",
+                  "ExecWS_LifecycleState":            { "Value": "Archived" },
+                  "ExecWS_MeetingDecisionId":         "@body('Get_Approved_file_properties')?['ExecWS_MeetingDecisionId']",
+                  "ExecWS_SensitivityClassification": "@body('Get_Approved_file_properties')?['ExecWS_SensitivityClassification']",
+                  "ExecWS_DocumentOwner@odata.type":  "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedUser",
+                  "ExecWS_DocumentOwner": {
+                    "Claims": "@body('Get_Approved_file_properties')?['ExecWS_DocumentOwner']?['Claims']"
+                  }
+                }
+              },
+              "authentication": "@parameters('$authentication')"
+            },
+            "runAfter": { "Create_file_in_Archive": ["Succeeded"] }
+          },
+          "Apply_retention_label": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                "connectionName": "shared_sharepointonline",
+                "operationId": "HttpRequest"
+              },
+              "parameters": {
+                "dataset": "{{SITE_URL}}",
+                "parameters/method":  "POST",
+                "parameters/uri":     "_api/web/lists/getbytitle('Archive')/items(@{body('Create_file_in_Archive')?['ID']})/SetComplianceTag()",
+                "parameters/headers": {
+                  "Accept":       "application/json;odata=verbose",
+                  "Content-Type": "application/json;odata=verbose"
+                },
+                "parameters/body": "{\"complianceTag\":\"@{parameters('RetentionLabelName')}\",\"isTagPolicyHold\":false,\"isTagPolicyRecord\":false,\"isEvent\":false,\"isTagSuperLock\":false}"
+              },
+              "authentication": "@parameters('$authentication')"
+            },
+            "runAfter": { "Update_Archive_metadata": ["Succeeded"] }
+          },
+          "Delete_from_Approved": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                "connectionName": "shared_sharepointonline",
+                "operationId": "DeleteFile"
+              },
+              "parameters": {
+                "dataset": "{{SITE_URL}}",
+                "id":      "@body('Get_Approved_file_properties')?['{Identifier}']"
+              },
+              "authentication": "@parameters('$authentication')"
+            },
+            "runAfter": { "Apply_retention_label": ["Succeeded"] }
+          },
+          "Notify_Compliance_of_archive": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                "connectionName": "shared_office365",
+                "operationId": "SendEmailV2"
+              },
+              "parameters": {
+                "emailMessage/To":         "{{COMPLIANCE_GROUP_EMAIL}}",
+                "emailMessage/Subject":    "[ExecWS] Document archived: @{body('Get_Approved_file_properties')?['FileLeafRef']}",
+                "emailMessage/Body":       "<p>The following document has been archived and is now subject to the retention policy.</p><p><strong>Document:</strong> @{body('Get_Approved_file_properties')?['FileLeafRef']}<br><strong>Document Type:</strong> @{body('Get_Approved_file_properties')?['ExecWS_DocumentType']}<br><strong>Archived date:</strong> @{utcNow('yyyy-MM-dd')}<br><strong>Retention label applied:</strong> @{parameters('RetentionLabelName')}</p><p>This notification is for compliance record purposes.</p>",
+                "emailMessage/Importance": "Normal"
+              },
+              "authentication": "@parameters('$authentication')"
+            },
+            "runAfter": { "Delete_from_Approved": ["Succeeded"] }
+          }
+        },
+        "else": {
+          "actions": {
+            "Terminate_not_approved": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code":    "InvalidLifecycleState",
+                  "message": "Document @{triggerBody()['DocumentId']} is not in Approved state. Current state: @{body('Get_Approved_file_properties')?['ExecWS_LifecycleState']?['Value']}. Archiving cancelled."
+                }
+              }
+            }
+          }
+        },
+        "runAfter": { "Get_Approved_file_properties": ["Succeeded"] }
+      }
+    }
+  },
+  "connectionReferences": {
+    "shared_sharepointonline": {
+      "connection": { "connectionReferenceLogicalName": "shared_sharepointonline" },
+      "api": { "name": "shared_sharepointonline" }
+    },
+    "shared_office365": {
+      "connection": { "connectionReferenceLogicalName": "shared_office365" },
+      "api": { "name": "shared_office365" }
+    }
+  }
+}

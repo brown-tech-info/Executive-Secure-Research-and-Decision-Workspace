@@ -1,0 +1,162 @@
+﻿{
+  "displayName": "ExecWS-DraftToReview",
+  "description": "Lifecycle flow: moves documents from Draft to Review library when LifecycleState is set to Review. LLD Section 7.1.",
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "$connections":    { "defaultValue": {}, "type": "Object" },
+      "$authentication": { "defaultValue": {}, "type": "SecureObject" },
+      "SiteUrl":         { "defaultValue": "{{SITE_URL}}", "type": "String" },
+      "ReviewerGroup":   { "defaultValue": "{{REVIEWER_GROUP_EMAIL}}", "type": "String" }
+    },
+    "triggers": {
+      "When_Draft_item_is_modified": {
+        "type": "OpenApiConnection",
+        "recurrence": {
+          "frequency": "Minute",
+          "interval": 1
+        },
+        "inputs": {
+          "host": {
+            "apiId":          "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "connectionName": "shared_sharepointonline",
+            "operationId":    "GetOnUpdatedFileItems"
+          },
+          "parameters": {
+            "dataset": "{{SITE_URL}}",
+            "table":   "Draft"
+          }
+        },
+        "conditions": [
+          { "expression": "@equals(triggerBody()?['ExecWS_LifecycleState']?['Value'], 'Review')" }
+        ],
+        "splitOn": "@triggerBody()?['value']"
+      }
+    },
+    "actions": {
+      "Get_file_content": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "apiId":                   "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "connectionName": "shared_sharepointonline",
+            "operationId":             "GetFileContent"
+          },
+          "parameters": {
+            "dataset": "{{SITE_URL}}",
+            "id":      "@triggerBody()?['{Identifier}']"
+          }
+        },
+        "runAfter": {}
+      },
+      "Create_file_in_Review": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "apiId":                   "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "connectionName": "shared_sharepointonline",
+            "operationId":             "CreateFile"
+          },
+          "parameters": {
+            "dataset":    "{{SITE_URL}}",
+            "folderPath": "/Review",
+            "name":       "@triggerBody()?['FileLeafRef']",
+            "body":       "@body('Get_file_content')"
+          }
+        },
+        "runAfter": { "Get_file_content": ["Succeeded"] }
+      },
+      "Update_Review_metadata": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "apiId":                   "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "connectionName": "shared_sharepointonline",
+            "operationId":             "PatchFileItem"
+          },
+          "parameters": {
+            "dataset": "{{SITE_URL}}",
+            "table":   "Draft",
+            "id":      "@triggerBody()?['ID']",
+            "item": {
+              "ExecWS_DocumentType":              "@triggerBody()?['ExecWS_DocumentType']",
+              "ExecWS_LifecycleState":            { "Value": "Review" },
+              "ExecWS_MeetingDecisionId":         "@triggerBody()?['ExecWS_MeetingDecisionId']",
+              "ExecWS_SensitivityClassification": "@triggerBody()?['ExecWS_SensitivityClassification']",
+              "ExecWS_DocumentOwner@odata.type":  "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedUser",
+              "ExecWS_DocumentOwner":             { "Claims": "@triggerBody()?['ExecWS_DocumentOwner']?['Claims']" }
+            }
+          }
+        },
+        "runAfter": { "Create_file_in_Review": ["Succeeded"] }
+      },
+      "Delete_from_Draft": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "apiId":                   "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "connectionName": "shared_sharepointonline",
+            "operationId":             "DeleteFile"
+          },
+          "parameters": {
+            "dataset": "{{SITE_URL}}",
+            "id":      "@triggerBody()?['{Identifier}']"
+          }
+        },
+        "runAfter": { "Update_Review_metadata": ["Succeeded"] }
+      },
+      "Notify_Reviewers": {
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "apiId":                   "/providers/Microsoft.PowerApps/apis/shared_office365",
+            "connectionName": "shared_office365",
+            "operationId":             "SendEmailV2"
+          },
+          "parameters": {
+            "emailMessage/To":         "{{REVIEWER_GROUP_EMAIL}}",
+            "emailMessage/Subject":    "[ExecWS] Document ready for review: @{triggerBody()?['FileLeafRef']}",
+            "emailMessage/Body":       "<p>A document has been submitted for your review in the Executive Workspace.</p><p><strong>Document:</strong> @{triggerBody()?['FileLeafRef']}<br><strong>Document Type:</strong> @{triggerBody()?['ExecWS_DocumentType']}<br><strong>Meeting / Decision ID:</strong> @{triggerBody()?['ExecWS_MeetingDecisionId']}</p><p>Access the document through the Review library only. Do not forward externally.</p>",
+            "emailMessage/Importance": "High"
+          }
+        },
+        "runAfter": { "Delete_from_Draft": ["Succeeded"] }
+      },
+      "Handle_failure": {
+        "type": "Scope",
+        "actions": {
+          "Notify_owner_of_failure": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "apiId":                   "/providers/Microsoft.PowerApps/apis/shared_office365",
+                "connectionName": "shared_office365",
+                "operationId":             "SendEmailV2"
+              },
+              "parameters": {
+                "emailMessage/To":         "@triggerBody()?['ExecWS_DocumentOwner']?['Email']",
+                "emailMessage/Subject":    "[ExecWS] Lifecycle flow failed: @{triggerBody()?['FileLeafRef']}",
+                "emailMessage/Body":       "<p>The lifecycle transition for your document failed. The document remains in the Draft library.</p><p><strong>Document:</strong> @{triggerBody()?['FileLeafRef']}</p><p>Please contact your Platform Administrator.</p>",
+                "emailMessage/Importance": "High"
+              }
+            }
+          }
+        },
+        "runAfter": { "Notify_Reviewers": ["Failed", "TimedOut", "Skipped"] }
+      }
+    }
+  },
+  "connectionReferences": {
+    "shared_sharepointonline": {
+      "runtimeSource": "embedded",
+      "connection": { "connectionReferenceLogicalName": "shared_sharepointonline" },
+      "api": { "name": "shared_sharepointonline" }
+    },
+    "shared_office365": {
+      "runtimeSource": "embedded",
+      "connection": { "connectionReferenceLogicalName": "shared_office365" },
+      "api": { "name": "shared_office365" }
+    }
+  }
+}

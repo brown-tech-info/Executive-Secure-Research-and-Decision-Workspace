@@ -1,0 +1,234 @@
+{
+  "displayName": "ExecWS-MeetingPackOpen",
+  "description": "Calendar-driven flow: opens a pre-tagged meeting pack in the Draft library when a Board, SteerCo, or ExecTeam calendar event is created. Parses meeting type from the event subject, derives a meeting cycle identifier, creates a placeholder document in Draft with pre-populated metadata, and notifies the Authors group. LLD Section 7.4.",
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "$connections": {
+        "defaultValue": {},
+        "type": "Object"
+      },
+      "$authentication": {
+        "defaultValue": {},
+        "type": "SecureObject"
+      },
+      "SiteUrl": {
+        "defaultValue": "{{SITE_URL}}",
+        "type": "String"
+      },
+      "AuthorsGroup": {
+        "defaultValue": "{{AUTHORS_GROUP_EMAIL}}",
+        "type": "String"
+      }
+    },
+    "triggers": {
+      "When_a_new_calendar_event_is_created": {
+        "type": "OpenApiConnection",
+        "recurrence": {
+          "frequency": "Minute",
+          "interval": 5
+        },
+        "inputs": {
+          "host": {
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+            "connectionName": "shared_office365",
+            "operationId": "CalendarGetOnNewItemsV3"
+          },
+          "parameters": {
+            "table": "Calendar"
+          }
+        },
+        "splitOn": "@triggerOutputs()?['body/value']"
+      }
+    },
+    "actions": {
+      "Parse_Meeting_Type": {
+        "type": "Compose",
+        "runAfter": {},
+        "inputs": "@if(contains(toLower(triggerBody()?['subject']), 'board'), 'Board', if(contains(toLower(triggerBody()?['subject']), 'steerco'), 'SteerCo', if(or(contains(toLower(triggerBody()?['subject']), 'execteam'), contains(toLower(triggerBody()?['subject']), 'exec team')), 'ExecTeam', 'Ad-Hoc')))"
+      },
+      "Check_Is_Exec_Meeting": {
+        "type": "If",
+        "runAfter": {
+          "Parse_Meeting_Type": [
+            "Succeeded"
+          ]
+        },
+        "expression": {
+          "not": {
+            "equals": [
+              "@outputs('Parse_Meeting_Type')",
+              "Ad-Hoc"
+            ]
+          }
+        },
+        "actions": {
+          "Derive_Meeting_Cycle": {
+            "type": "Compose",
+            "runAfter": {},
+            "inputs": "@if(equals(outputs('Parse_Meeting_Type'), 'Board'), concat('BOARD-', formatDateTime(triggerBody()?['start'], 'yyyy-MM')), if(equals(outputs('Parse_Meeting_Type'), 'SteerCo'), concat('STEERCO-', formatDateTime(triggerBody()?['start'], 'yyyy-MM-dd')), concat('EXECTEAM-', formatDateTime(triggerBody()?['start'], 'yyyy-MM-dd'))))"
+          },
+          "Derive_Pack_ID": {
+            "type": "Compose",
+            "runAfter": {
+              "Derive_Meeting_Cycle": [
+                "Succeeded"
+              ]
+            },
+            "inputs": "@concat(outputs('Derive_Meeting_Cycle'), '-001')"
+          },
+          "Derive_File_Name": {
+            "type": "Compose",
+            "runAfter": {
+              "Derive_Pack_ID": [
+                "Succeeded"
+              ]
+            },
+            "inputs": "@concat(outputs('Parse_Meeting_Type'), '-', formatDateTime(triggerBody()?['start'], 'yyyy-MM-dd'), '-PackPlaceholder.txt')"
+          },
+          "Create_Pack_Placeholder": {
+            "type": "OpenApiConnection",
+            "runAfter": {
+              "Derive_File_Name": [
+                "Succeeded"
+              ]
+            },
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                "connectionName": "shared_sharepointonline",
+                "operationId": "CreateFile"
+              },
+              "parameters": {
+                "dataset": "{{SITE_URL}}",
+                "folderPath": "/Draft",
+                "name": "@outputs('Derive_File_Name')",
+                "body": "Meeting Pack Placeholder\n\nMeeting Type:     @{outputs('Parse_Meeting_Type')}\nMeeting Date:     @{formatDateTime(triggerBody()?['start'], 'yyyy-MM-dd')}\nMeeting Cycle:    @{outputs('Derive_Meeting_Cycle')}\nPack ID:          @{outputs('Derive_Pack_ID')}\nCalendar Subject: @{triggerBody()?['subject']}\n\nThis placeholder was created automatically by the MeetingPackOpen flow.\nAuthors: replace or supplement this file with the actual meeting pack documents.\nAll documents added to this pack should carry the meeting metadata tags listed above."
+              }
+            }
+          },
+          "Set_Pack_Metadata": {
+            "type": "OpenApiConnection",
+            "runAfter": {
+              "Create_Pack_Placeholder": [
+                "Succeeded"
+              ]
+            },
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                "connectionName": "shared_sharepointonline",
+                "operationId": "PatchFileItem"
+              },
+              "parameters": {
+                "dataset": "{{SITE_URL}}",
+                "table": "Draft",
+                "id": "@body('Create_Pack_Placeholder')?['ItemId']",
+                "item": {
+                  "ExecWS_LifecycleState": {
+                    "Value": "Draft"
+                  },
+                  "ExecWS_MeetingType": {
+                    "Value": "@{outputs('Parse_Meeting_Type')}"
+                  },
+                  "ExecWS_MeetingDate": "@formatDateTime(triggerBody()?['start'], 'yyyy-MM-ddTHH:mm:ssZ')",
+                  "ExecWS_MeetingCycle": "@outputs('Derive_Meeting_Cycle')",
+                  "ExecWS_PackVersion": 1,
+                  "ExecWS_MeetingDecisionId": "@outputs('Derive_Pack_ID')"
+                }
+              }
+            }
+          },
+          "Notify_Authors": {
+            "type": "OpenApiConnection",
+            "runAfter": {
+              "Set_Pack_Metadata": [
+                "Succeeded"
+              ]
+            },
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                "connectionName": "shared_office365",
+                "operationId": "SendEmailV2"
+              },
+              "parameters": {
+                "emailMessage/To": "{{AUTHORS_GROUP_EMAIL}}",
+                "emailMessage/Subject": "[ExecWS] Meeting pack open: @{outputs('Derive_Pack_ID')}",
+                "emailMessage/Body": "<p>A new meeting pack has been opened in the Executive Workspace Draft library.</p><p><strong>Meeting Type:</strong> @{outputs('Parse_Meeting_Type')}<br><strong>Meeting Date:</strong> @{formatDateTime(triggerBody()?['start'], 'dd MMMM yyyy')}<br><strong>Meeting Cycle:</strong> @{outputs('Derive_Meeting_Cycle')}<br><strong>Pack ID:</strong> @{outputs('Derive_Pack_ID')}<br><strong>Calendar Subject:</strong> @{triggerBody()?['subject']}</p><p>A placeholder document has been created in the Draft library with pre-populated meeting metadata. Please add your documents and submit them through the review workflow before the meeting date.</p><p>Access the Draft library through the Executive Workspace SharePoint site only. Do not distribute content outside the workspace.</p>",
+                "emailMessage/Importance": "Normal"
+              }
+            }
+          },
+          "Handle_Failure": {
+            "type": "Scope",
+            "runAfter": {
+              "Notify_Authors": [
+                "Failed",
+                "TimedOut",
+                "Skipped"
+              ],
+              "Set_Pack_Metadata": [
+                "Failed",
+                "TimedOut"
+              ],
+              "Create_Pack_Placeholder": [
+                "Failed",
+                "TimedOut"
+              ]
+            },
+            "actions": {
+              "Notify_Admin_Of_Failure": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                    "connectionName": "shared_office365",
+                    "operationId": "SendEmailV2"
+                  },
+                  "parameters": {
+                    "emailMessage/To": "{{AUTHORS_GROUP_EMAIL}}",
+                    "emailMessage/Subject": "[ExecWS] MeetingPackOpen flow failed: @{triggerBody()?['subject']}",
+                    "emailMessage/Body": "<p>The MeetingPackOpen flow failed to create a meeting pack placeholder.</p><p><strong>Calendar Event:</strong> @{triggerBody()?['subject']}<br><strong>Meeting Date:</strong> @{formatDateTime(triggerBody()?['start'], 'dd MMMM yyyy')}<br><strong>Detected Meeting Type:</strong> @{outputs('Parse_Meeting_Type')}</p><p>Please create the meeting pack placeholder manually in the Draft library and set the meeting metadata fields. Contact your Platform Administrator if this issue persists.</p>",
+                    "emailMessage/Importance": "High"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "else": {
+          "actions": {
+            "Terminate_Not_Exec_Meeting": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Cancelled"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "connectionReferences": {
+    "shared_office365": {
+      "runtimeSource": "embedded",
+      "connection": {
+        "connectionReferenceLogicalName": "shared_office365"
+      },
+      "api": {
+        "name": "shared_office365"
+      }
+    },
+    "shared_sharepointonline": {
+      "runtimeSource": "embedded",
+      "connection": {
+        "connectionReferenceLogicalName": "shared_sharepointonline"
+      },
+      "api": {
+        "name": "shared_sharepointonline"
+      }
+    }
+  }
+}

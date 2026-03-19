@@ -1,0 +1,212 @@
+﻿{
+  "displayName": "ExecWS-ReviewToApproved",
+  "description": "Lifecycle flow: runs formal approval on Review documents. On approval moves to Approved; on rejection returns to Draft. LLD Section 7.2.",
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "$connections":    { "defaultValue": {}, "type": "Object" },
+      "$authentication": { "defaultValue": {}, "type": "SecureObject" },
+      "SiteUrl":         { "defaultValue": "{{SITE_URL}}", "type": "String" },
+      "ApproverUpns":    { "defaultValue": "{{APPROVER_UPNS}}", "type": "String",
+                           "metadata": { "description": "Semicolon-separated list of approver UPNs" } }
+    },
+    "triggers": {
+      "When_Review_item_submitted_for_approval": {
+        "type": "OpenApiConnection",
+        "recurrence": {
+          "frequency": "Minute",
+          "interval": 1
+        },
+        "inputs": {
+          "host": {
+            "apiId":          "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "connectionName": "shared_sharepointonline",
+            "operationId":    "GetOnUpdatedFileItems"
+          },
+          "parameters": {
+            "dataset": "{{SITE_URL}}",
+            "table":   "Review"
+          }
+        },
+        "conditions": [
+          { "expression": "@equals(triggerBody()?['ExecWS_LifecycleState']?['Value'], 'Approved')" }
+        ],
+        "splitOn": "@triggerBody()?['value']"
+      }
+    },
+    "actions": {
+      "Start_approval": {
+        "type": "OpenApiConnectionWebhook",
+        "inputs": {
+          "host": {
+            "apiId":                   "/providers/Microsoft.PowerApps/apis/shared_approvals",
+            "connectionName": "shared_approvals",
+            "operationId":             "StartAndWaitForAnApproval"
+          },
+          "parameters": {
+            "approvalType":                                  "Basic",
+            "WebhookApprovalCreationInput/title":            "Approval required: @{triggerBody()?['FileLeafRef']}",
+            "WebhookApprovalCreationInput/assignedTo":       "{{APPROVER_UPNS}}",
+            "WebhookApprovalCreationInput/details":          "Document awaiting formal approval before promotion to the Approved library.\n\nDocument: @{triggerBody()?['FileLeafRef']}\nDocument Type: @{triggerBody()?['ExecWS_DocumentType']}\nMeeting / Decision ID: @{triggerBody()?['ExecWS_MeetingDecisionId']}",
+            "WebhookApprovalCreationInput/itemLink":         "{{SITE_URL}}/Review/@{triggerBody()?['FileLeafRef']}",
+            "WebhookApprovalCreationInput/itemLinkDescription": "View document in Review library (Executive Workspace)"
+          }
+        },
+        "runAfter": {}
+      },
+      "Check_approval_outcome": {
+        "type": "If",
+        "expression": {
+          "and": [
+            { "equals": [ "@outputs('Start_approval')?['body/outcome']", "Approve" ] }
+          ]
+        },
+        "actions": {
+          "Get_file_content_for_approval": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "apiId":                   "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                "connectionName": "shared_sharepointonline",
+                "operationId":             "GetFileContent"
+              },
+              "parameters": {
+                "dataset": "{{SITE_URL}}",
+                "id":      "@triggerBody()?['{Identifier}']"
+              }
+            }
+          },
+          "Create_file_in_Approved": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "apiId":                   "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                "connectionName": "shared_sharepointonline",
+                "operationId":             "CreateFile"
+              },
+              "parameters": {
+                "dataset":    "{{SITE_URL}}",
+                "folderPath": "/Approved",
+                "name":       "@triggerBody()?['FileLeafRef']",
+                "body":       "@body('Get_file_content_for_approval')"
+              }
+            },
+            "runAfter": { "Get_file_content_for_approval": ["Succeeded"] }
+          },
+          "Update_Approved_metadata": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "apiId":                   "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                "connectionName": "shared_sharepointonline",
+                "operationId":             "PatchFileItem"
+              },
+              "parameters": {
+                "dataset": "{{SITE_URL}}",
+                "table":   "Approved",
+                "id":      "@body('Create_file_in_Approved')?['ID']",
+                "item": {
+                  "ExecWS_DocumentType":              "@triggerBody()?['ExecWS_DocumentType']",
+                  "ExecWS_LifecycleState":            { "Value": "Approved" },
+                  "ExecWS_MeetingDecisionId":         "@triggerBody()?['ExecWS_MeetingDecisionId']",
+                  "ExecWS_SensitivityClassification": "@triggerBody()?['ExecWS_SensitivityClassification']",
+                  "ExecWS_DocumentOwner@odata.type":  "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedUser",
+                  "ExecWS_DocumentOwner":             { "Claims": "@triggerBody()?['ExecWS_DocumentOwner']?['Claims']" }
+                }
+              }
+            },
+            "runAfter": { "Create_file_in_Approved": ["Succeeded"] }
+          },
+          "Delete_from_Review_approved": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "apiId":                   "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                "connectionName": "shared_sharepointonline",
+                "operationId":             "DeleteFile"
+              },
+              "parameters": {
+                "dataset": "{{SITE_URL}}",
+                "id":      "@triggerBody()?['{Identifier}']"
+              }
+            },
+            "runAfter": { "Update_Approved_metadata": ["Succeeded"] }
+          },
+          "Notify_Executives_of_approval": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "apiId":                   "/providers/Microsoft.PowerApps/apis/shared_office365",
+                "connectionName": "shared_office365",
+                "operationId":             "SendEmailV2"
+              },
+              "parameters": {
+                "emailMessage/To":         "{{EXECUTIVES_GROUP_EMAIL}}",
+                "emailMessage/Subject":    "[ExecWS] Document approved and available: @{triggerBody()?['FileLeafRef']}",
+                "emailMessage/Body":       "<p>A document has been formally approved and is now available in the Approved library.</p><p><strong>Document:</strong> @{triggerBody()?['FileLeafRef']}<br><strong>Approved by:</strong> @{outputs('Start_approval')?['body/responder/email']}<br><strong>Date:</strong> @{utcNow('yyyy-MM-dd')}</p>",
+                "emailMessage/Importance": "Normal"
+              }
+            },
+            "runAfter": { "Delete_from_Review_approved": ["Succeeded"] }
+          }
+        },
+        "else": {
+          "actions": {
+            "Reset_LifecycleState_to_Draft": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId":                   "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "connectionName": "shared_sharepointonline",
+                  "operationId":             "PatchFileItem"
+                },
+                "parameters": {
+                  "dataset": "{{SITE_URL}}",
+                  "table":   "Review",
+                  "id":      "@triggerBody()?['ID']",
+                  "item":    { "ExecWS_LifecycleState": { "Value": "Draft" } }
+                }
+              }
+            },
+            "Notify_owner_of_rejection": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId":                   "/providers/Microsoft.PowerApps/apis/shared_office365",
+                  "connectionName": "shared_office365",
+                  "operationId":             "SendEmailV2"
+                },
+                "parameters": {
+                  "emailMessage/To":         "@triggerBody()?['ExecWS_DocumentOwner']?['Email']",
+                  "emailMessage/Subject":    "[ExecWS] Document returned for revision: @{triggerBody()?['FileLeafRef']}",
+                  "emailMessage/Body":       "<p>Your document has been returned for revision.</p><p><strong>Document:</strong> @{triggerBody()?['FileLeafRef']}<br><strong>Returned by:</strong> @{outputs('Start_approval')?['body/responder/email']}<br><strong>Comments:</strong> @{outputs('Start_approval')?['body/comments']}</p><p>The document has been set back to Draft status.</p>",
+                  "emailMessage/Importance": "High"
+                }
+              },
+              "runAfter": { "Reset_LifecycleState_to_Draft": ["Succeeded"] }
+            }
+          }
+        },
+        "runAfter": { "Start_approval": ["Succeeded"] }
+      }
+    }
+  },
+  "connectionReferences": {
+    "shared_sharepointonline": {
+      "runtimeSource": "embedded",
+      "connection": { "connectionReferenceLogicalName": "shared_sharepointonline" },
+      "api": { "name": "shared_sharepointonline" }
+    },
+    "shared_approvals": {
+      "runtimeSource": "embedded",
+      "connection": { "connectionReferenceLogicalName": "shared_approvals" },
+      "api": { "name": "shared_approvals" }
+    },
+    "shared_office365": {
+      "runtimeSource": "embedded",
+      "connection": { "connectionReferenceLogicalName": "shared_office365" },
+      "api": { "name": "shared_office365" }
+    }
+  }
+}

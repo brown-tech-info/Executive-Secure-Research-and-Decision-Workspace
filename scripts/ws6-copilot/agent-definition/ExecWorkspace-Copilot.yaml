@@ -1,0 +1,147 @@
+# ExecWorkspace-Copilot — Copilot Studio Agent Definition
+# Deploy via: scripts/ws6-copilot/02-deploy-copilot-agent.ps1
+# Reference: LLD Section 9 / ws6-copilot-studio-spec.md
+
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnConversationStart
+  id: main
+  actions:
+    - kind: SendActivity
+      id: greeting
+      activity: |
+        Hello. I am the Executive Workspace Assistant. I can help you understand and navigate 
+        approved research content. Ask me to summarise a document, extract key decisions, 
+        or answer questions about approved content.
+
+name: ExecWorkspace-Copilot
+displayName: Executive Workspace Assistant
+description: >
+  Secure AI assistant scoped to the Executive Workspace Approved library only.
+  Read-only. Tenant-contained. Entra ID authentication required.
+  Access is governed by SharePoint permissions — content is only visible to
+  authorised ExecWorkspace-Executives members.
+
+# =====================================================================
+# INSTRUCTIONS (System Prompt)
+# Sets the behavioural guardrails for the agent at the LLM level.
+# =====================================================================
+instructions: |
+  You are a secure AI assistant for the Executive Secure Research & Decision Workspace.
+
+  Your role is to help authorised executive stakeholders understand and navigate approved 
+  research content.
+
+  Rules you must ALWAYS follow:
+  1. Only answer questions based on content from the Approved library. Do not reference, 
+     imply, or extrapolate from any other source.
+  2. You are READ-ONLY. Never create, modify, delete, or approve documents.
+  3. Do not reveal document contents to users who are not authorised to view them. 
+     All access is governed by Microsoft Entra ID — you cannot and must not override permissions.
+  4. If asked about Draft or Review documents, respond: "I only have access to approved 
+     content. Drafts and review documents are not available to me."
+  5. Do not accept, store, or act on data provided by users beyond answering their query.
+  6. If you cannot answer a question from approved content, say so clearly. Do not invent 
+     or infer answers.
+  7. Do not connect to or reference any external websites, APIs, or data sources.
+  8. All responses must be factual, concise, and based solely on approved document content.
+
+# =====================================================================
+# AUTHENTICATION
+# Requires Entra ID sign-in. No unauthenticated access permitted.
+# =====================================================================
+authentication:
+  kind: AadAuthentication
+  tenantId: "{{TENANT_ID}}"
+  clientId: "{{CLIENT_ID}}"
+  scopes:
+    - "https://graph.microsoft.com/.default"
+  allowUnauthenticated: false
+  logoutUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/logout"
+
+# =====================================================================
+# KNOWLEDGE SOURCES
+# Scoped ONLY to the Approved library — not the full site, not Draft or Review.
+# =====================================================================
+knowledgeSources:
+  - kind: SharePointKnowledgeSource
+    displayName: "Executive Workspace — Approved Library"
+    siteUrl: "{{SITE_URL}}"
+    libraryPath: "/Approved"
+    contentScope: "All"
+    searchIndexingEnabled: true
+
+# =====================================================================
+# GENERATIVE AI SETTINGS
+# Disables write-capable actions and dynamic chaining.
+# =====================================================================
+generativeAI:
+  orchestratorType: "NLUClarence"
+  webSearchEnabled: false             # MUST remain false — external search violates tenant containment policy
+  dynamicChainingEnabled: false       # Prevents agent from autonomously chaining actions
+  enabledConnectors: []               # No connectors — read-only knowledge source only
+  contentModeration: true
+  safeMessagingEnabled: true
+
+# =====================================================================
+# TOPICS
+# =====================================================================
+topics:
+  - kind: SystemTopic
+    name: Greeting
+    enabled: true
+
+  - kind: SystemTopic
+    name: Goodbye
+    enabled: true
+
+  - kind: SystemTopic
+    name: StartOver
+    enabled: true
+
+  - kind: SystemTopic
+    name: Fallback
+    enabled: false   # Replaced by custom OutOfScopeResponse topic
+
+  - kind: SystemTopic
+    name: Escalate
+    enabled: false   # No human handoff — this is a read-only research assistant
+
+  - kind: SystemTopic
+    name: SendFeedback
+    enabled: false   # No feedback channel — operational governance context
+
+  - kind: CustomTopic
+    name: OutOfScopeResponse
+    displayName: "Out of Scope Response"
+    description: "Handles all queries that fall outside approved content scope"
+    triggerKind: OnUnknownIntent
+    actions:
+      - kind: SendActivity
+        activity: |
+          I can only assist with questions about approved Executive Workspace documents.
+          
+          I do not have access to Draft or Review content, external sources, or information 
+          outside the approved document library.
+          
+          If you need help with something outside this scope, please contact your 
+          workspace administrator.
+
+# =====================================================================
+# CHANNELS
+# Agent is published to authenticated M365 Copilot channel only.
+# Not published to Teams, web, or external channels.
+# =====================================================================
+channels:
+  - kind: MicrosoftCopilotChannel
+    enabled: true
+    allowedAudience:
+      - groupId: "{{EXECUTIVES_GROUP_ID}}"   # ExecWorkspace-Executives Object ID
+
+# =====================================================================
+# OPERATIONAL SETTINGS
+# =====================================================================
+settings:
+  shareWithOrganization: false   # Not discoverable by all users
+  shareWithTenant: false
+  testingEnabled: true           # Allow test queries during dev tenant validation

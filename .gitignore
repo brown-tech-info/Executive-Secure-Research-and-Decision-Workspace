@@ -1,0 +1,55 @@
+# === Credentials & secrets — NEVER commit these ===
+*.pfx
+*.cer
+*.key
+*.pem
+*.p12
+*credentials*
+*secret*
+*password*
+*.env
+.env.*
+
+# === PowerShell ===
+# Transcript logs
+*.transcript
+Transcript-*.txt
+
+# Exported credential objects
+*.clixml
+*.xml.cred
+
+# PS session state
+*.pssc
+
+# === Azure / M365 token caches ===
+.azure/
+TokenCache/
+msal_token_cache*
+.graph/
+
+# === Power Platform / PAC CLI ===
+.pac/
+CDS/
+
+# === OS artifacts ===
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# === Editor artifacts ===
+.vscode/settings.json
+.vscode/launch.json
+*.suo
+*.user
+
+# Deployment configuration — contains tenant ID, client ID, cert thumbprint
+# Copy config.ps1.example → config.ps1 and fill in your values
+scripts/config.ps1
+
+# Deployment certificate files — private key and public cert must stay local
+scripts/deploy-cert.pfx
+scripts/deploy-cert.cer
+
+# Local reference images — not part of the codebase
+error images/

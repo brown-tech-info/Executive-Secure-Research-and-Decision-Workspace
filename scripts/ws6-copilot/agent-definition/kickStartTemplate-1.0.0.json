@@ -1,0 +1,55 @@
+{
+  "_artifact.note": "PAC CLI export artifact (pac copilot extract-template). Contains the compact instruction set actually deployed to the ExecWorkspace-Copilot agent in copilotstudio.microsoft.com. Bot ID: <bot-id>. For the canonical full 8-rule instruction set, see ExecWorkspace-Copilot.yaml. Do NOT modify this file manually — it is the last known deployed state as of 14 March 2026.",
+  "version": "1.0.0",
+  "_version.comment": "{locked}",
+  "metadata": {
+    "templateName": "kickStartTemplate",
+    "_templateName.comment": "{locked}",
+    "templateVersion": "1.0.0",
+    "_templateVersion.comment": "{locked}",
+    "name": "Agent Name",
+    "description": "A basic agent.",
+    "source": "CopilotStudio",
+    "_source.comment": "{locked}",
+    "quality": "PrivatePreview",
+    "_quality.comment": "{locked}",
+    "iconBase64": null,
+    "_iconBase64.comment": "{locked}",
+    "iconAltText": null,
+    "isGpt": false,
+    "_isGpt.comment": "{locked}",
+    "documentationUri": null,
+    "_documentationUri.comment": "{locked}",
+    "supportedLanguages": [],
+    "_supportedLanguages.comment": "{locked}",
+    "industries": [],
+    "_industries.comment": "{locked}",
+    "categories": [],
+    "_categories.comment": "{locked}"
+  },
+  "content": {
+    "displayName": "Copilot",
+    "description": "Secure AI assistant scoped to the Executive Workspace Approved library only. Read-only. Tenant-contained. Entra ID authentication required. Access is governed by SharePoint permissions \u2014 content is only visible to authorised ExecWorkspace-Executives members.",
+    "instructions": "You are a secure AI assistant for the Executive Secure Research \u0026 Decision Workspace. Only answer questions from the Approved library. You are READ-ONLY. Require Entra ID sign-in. Do not access Draft or Review content. Do not use external sources.",
+    "conversationStarters": []
+  },
+  "customizations": {
+    "schema": {
+      "type": "object",
+      "_type.comment": "{locked}",
+      "properties": {
+        "Property1": {
+          "type": "string",
+          "_type.comment": "{locked}",
+          "title": "An overridable property",
+          "description": "This is a property that can be added anywhere in the content.yml as {{Property1}}. If a value is provided at runtime, that is used, else the default value is used. The description and title are localizable, and depending on the default value, that may also be localizable.",
+          "default": "Default value. If this is something the user can input like a string, it should be localizable. If its to replace a number or a boolean toggle, then no.",
+          "_default.comment": "{locked}"
+        }
+      }
+    }
+  },
+  "spec": {
+    "connectors": []
+  }
+}
