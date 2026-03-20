@@ -1,0 +1,66 @@
+App As AppType:
+    OnStart: |-
+        =// ═══════════════════════════════════════════════════════════════
+        // ExecWorkspace — Role Detection & Initialisation
+        // ═══════════════════════════════════════════════════════════════
+
+        // 1. Get current user profile
+        Set(gblCurrentUser, Office365Users.MyProfileV2());
+        Set(gblUserDisplayName, gblCurrentUser.displayName);
+        Set(gblUserEmail, gblCurrentUser.mail);
+        Set(gblUserId, gblCurrentUser.id);
+
+        // 2. Check roles via helper flow (single Graph API call)
+        Set(
+            gblUserRolesResult,
+            ExecWSCheckUserRoles.Run(gblUserId)
+        );
+        Set(gblUserRolesText, gblUserRolesResult.roles);
+
+        Set(gblIsAuthor, "Author" in gblUserRolesText);
+        Set(gblIsReviewer, "Reviewer" in gblUserRolesText);
+        Set(gblIsExecutive, "Executive" in gblUserRolesText);
+        Set(gblIsCompliance, "Compliance" in gblUserRolesText);
+        Set(gblIsAdmin, "Admin" in gblUserRolesText);
+
+        // 3. Determine access
+        Set(
+            gblHasRole,
+            gblIsAuthor || gblIsReviewer || gblIsExecutive || gblIsCompliance || gblIsAdmin
+        );
+        Set(
+            gblPrimaryRole,
+            If(
+                gblIsAdmin, "Platform Admin",
+                gblIsExecutive, "Executive",
+                gblIsReviewer, "Reviewer",
+                gblIsAuthor, "Author",
+                gblIsCompliance, "Compliance",
+                "No Access"
+            )
+        );
+
+        // 4. Load dashboard data if authorised
+        If(
+            gblHasRole,
+            Concurrent(
+                Set(gblDraftCount, CountRows(Filter(Draft, ID > 0))),
+                Set(gblReviewCount, CountRows(Filter(Review, ID > 0))),
+                Set(gblApprovedCount, CountRows(Filter(Approved, ID > 0))),
+                Set(gblArchiveCount, CountRows(Filter(Archive, ID > 0)))
+            );
+            Navigate(scrDashboard, ScreenTransition.None),
+            Navigate(scrNoAccess, ScreenTransition.None)
+        );
+
+    OnError: |-
+        =If(
+            FirstError.Kind = ErrorKind.Network,
+            Notify("Network error. Check your connection and try again.", NotificationType.Error),
+            FirstError.Kind = ErrorKind.Permission,
+            Notify("You don't have permission to perform this action.", NotificationType.Error),
+            Notify(
+                Concatenate("An error occurred // ", FirstError.Message),
+                NotificationType.Error
+            )
+        );

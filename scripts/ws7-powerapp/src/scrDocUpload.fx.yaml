@@ -1,0 +1,286 @@
+scrDocUpload As Screen:
+    OnVisible: |-
+        =Set(locUploadBusy, false);
+        Set(locUploadAttempted, false);
+        Set(locFormValid, false);
+        Set(locDerivedFileName, "");
+        Set(locDerivedMeetingCycle, "");
+        Set(locDerivedDecisionId, "");
+        Set(locPackVersion, 1);
+
+    cmpNav_Upload As cmpNavPanel:
+        ActiveScreen: ="scrDocUpload"
+        X: =0
+        Y: =0
+        Width: =220
+        Height: =Parent.Height
+
+    lblUploadTitle As Label:
+        Text: ="Upload Document"
+        X: =240
+        Y: =16
+        Width: =300
+        Height: =40
+        Size: =28
+        FontWeight: =FontWeight.Semibold
+        Color: =RGBA(50, 49, 48, 1)
+
+    attFileUpload As AttachmentControl:
+        X: =240
+        Y: =80
+        Width: =Parent.Width - 280
+        Height: =100
+        BorderColor: =RGBA(237, 235, 233, 1)
+        BorderStyle: =BorderStyle.Dashed
+        MaxAttachments: =1
+        MaxAttachmentSize: =25000000
+
+    lblDocTypeLabel As Label:
+        Text: ="Document Type *"
+        X: =240
+        Y: =200
+        Width: =200
+        Height: =20
+        Size: =12
+        Color: =RGBA(96, 94, 92, 1)
+
+    drpDocumentType As DropDown:
+        Items: =["Board Pack", "Research Summary", "Decision Record", "Meeting Minutes", "Supporting Material"]
+        X: =240
+        Y: =222
+        Width: =(Parent.Width - 296) / 2
+        Height: =36
+        BorderColor: =If(IsBlank(drpDocumentType.Selected) && locUploadAttempted, RGBA(209, 52, 56, 1), RGBA(237, 235, 233, 1))
+        OnChange: |-
+            =Set(
+                locDerivedFileName,
+                If(
+                    IsBlank(drpMeetingType.Selected) || IsBlank(drpDocumentType.Selected) || IsBlank(txtShortTitle.Text),
+                    "",
+                    Concatenate(
+                        Upper(drpMeetingType.Selected.Value), "-",
+                        Text(dpMeetingDate.SelectedDate, "yyyy-MM"), "-",
+                        Substitute(drpDocumentType.Selected.Value, " ", ""), "-",
+                        Substitute(Trim(txtShortTitle.Text), " ", "")
+                    )
+                )
+            );
+
+    lblMeetingTypeLabel As Label:
+        Text: ="Meeting Type *"
+        X: =240 + (Parent.Width - 296) / 2 + 16
+        Y: =200
+        Width: =200
+        Height: =20
+        Size: =12
+        Color: =RGBA(96, 94, 92, 1)
+
+    drpMeetingType As DropDown:
+        Items: =["Board", "SteerCo", "ExecTeam", "Ad-Hoc"]
+        X: =240 + (Parent.Width - 296) / 2 + 16
+        Y: =222
+        Width: =(Parent.Width - 296) / 2
+        Height: =36
+        OnChange: |-
+            =Set(
+                locDerivedMeetingCycle,
+                Switch(
+                    drpMeetingType.Selected.Value,
+                    "Board", Concatenate("BOARD-", Text(dpMeetingDate.SelectedDate, "yyyy-MM")),
+                    "SteerCo", Concatenate("STEERCO-", Text(dpMeetingDate.SelectedDate, "yyyy"), "-W", Text(WeekNum(dpMeetingDate.SelectedDate))),
+                    "ExecTeam", Concatenate("EXECTEAM-", Text(dpMeetingDate.SelectedDate, "yyyy"), "-W", Text(WeekNum(dpMeetingDate.SelectedDate))),
+                    Concatenate("ADHOC-", Text(dpMeetingDate.SelectedDate, "yyyy-MM-dd"))
+                )
+            );
+            Set(locDerivedDecisionId, Concatenate(locDerivedMeetingCycle, "-001"));
+
+    lblMeetingDateLabel As Label:
+        Text: ="Meeting Date *"
+        X: =240
+        Y: =274
+        Width: =200
+        Height: =20
+        Size: =12
+        Color: =RGBA(96, 94, 92, 1)
+
+    dpMeetingDate As DatePicker:
+        DefaultDate: =Today()
+        X: =240
+        Y: =296
+        Width: =(Parent.Width - 296) / 2
+        Height: =36
+
+    lblShortTitleLabel As Label:
+        Text: ="Short Title *"
+        X: =240 + (Parent.Width - 296) / 2 + 16
+        Y: =274
+        Width: =200
+        Height: =20
+        Size: =12
+        Color: =RGBA(96, 94, 92, 1)
+
+    txtShortTitle As TextInput:
+        HintText: ="e.g. Q1Results"
+        X: =240 + (Parent.Width - 296) / 2 + 16
+        Y: =296
+        Width: =(Parent.Width - 296) / 2
+        Height: =36
+        BorderColor: =If(IsBlank(Trim(txtShortTitle.Text)) && locUploadAttempted, RGBA(209, 52, 56, 1), RGBA(237, 235, 233, 1))
+
+    lblSensitivityLabel As Label:
+        Text: ="Sensitivity Classification"
+        X: =240
+        Y: =348
+        Width: =200
+        Height: =20
+        Size: =12
+        Color: =RGBA(96, 94, 92, 1)
+
+    drpSensitivity As DropDown:
+        Items: =["Confidential – Executive", "Highly Confidential – Board"]
+        X: =240
+        Y: =370
+        Width: =(Parent.Width - 296) / 2
+        Height: =36
+
+    lblPackVersionLabel As Label:
+        Text: ="Pack Version"
+        X: =240 + (Parent.Width - 296) / 2 + 16
+        Y: =348
+        Width: =200
+        Height: =20
+        Size: =12
+        Color: =RGBA(96, 94, 92, 1)
+
+    txtPackVersion As TextInput:
+        Default: ="1"
+        X: =240 + (Parent.Width - 296) / 2 + 16
+        Y: =370
+        Width: =120
+        Height: =36
+        Format: =TextFormat.Number
+
+    lblDerivedSection As Label:
+        Text: ="Auto-generated values"
+        X: =240
+        Y: =426
+        Width: =300
+        Height: =20
+        Size: =12
+        FontWeight: =FontWeight.Semibold
+        Color: =RGBA(96, 94, 92, 1)
+
+    lblDerivedFileNameLabel As Label:
+        Text: ="Filename"
+        X: =240
+        Y: =450
+        Width: =80
+        Height: =20
+        Size: =12
+        Color: =RGBA(96, 94, 92, 1)
+
+    lblDerivedFileName As Label:
+        Text: =If(IsBlank(locDerivedFileName), "(complete form to preview)", locDerivedFileName)
+        X: =320
+        Y: =450
+        Width: =500
+        Height: =20
+        Size: =12
+        FontWeight: =FontWeight.Semibold
+        Color: =RGBA(50, 49, 48, 1)
+
+    lblDerivedCycleLabel As Label:
+        Text: ="Meeting Cycle"
+        X: =240
+        Y: =474
+        Width: =80
+        Height: =20
+        Size: =12
+        Color: =RGBA(96, 94, 92, 1)
+
+    lblDerivedCycle As Label:
+        Text: =If(IsBlank(locDerivedMeetingCycle), "—", locDerivedMeetingCycle)
+        X: =320
+        Y: =474
+        Width: =300
+        Height: =20
+        Size: =12
+        Color: =RGBA(50, 49, 48, 1)
+
+    lblDerivedIdLabel As Label:
+        Text: ="Decision ID"
+        X: =240
+        Y: =498
+        Width: =80
+        Height: =20
+        Size: =12
+        Color: =RGBA(96, 94, 92, 1)
+
+    lblDerivedId As Label:
+        Text: =If(IsBlank(locDerivedDecisionId), "—", locDerivedDecisionId)
+        X: =320
+        Y: =498
+        Width: =300
+        Height: =20
+        Size: =12
+        Color: =RGBA(50, 49, 48, 1)
+
+    btnCancel As Button:
+        Text: ="Cancel"
+        X: =Parent.Width - 340
+        Y: =Parent.Height - 64
+        Width: =120
+        Height: =40
+        Fill: =RGBA(255, 255, 255, 1)
+        Color: =RGBA(50, 49, 48, 1)
+        BorderColor: =RGBA(237, 235, 233, 1)
+        BorderThickness: =1
+        BorderRadius: =4
+        OnSelect: =Navigate(scrDocBrowser, ScreenTransition.None)
+
+    btnUpload As Button:
+        Text: =If(locUploadBusy, "Uploading...", "Upload to Draft ↑")
+        X: =Parent.Width - 200
+        Y: =Parent.Height - 64
+        Width: =160
+        Height: =40
+        Fill: =RGBA(0, 120, 212, 1)
+        Color: =RGBA(255, 255, 255, 1)
+        BorderRadius: =4
+        DisplayMode: =If(locUploadBusy, DisplayMode.Disabled, DisplayMode.Edit)
+        OnSelect: |-
+            =Set(locUploadAttempted, true);
+            Set(
+                locFormValid,
+                CountRows(attFileUpload.Attachments) > 0 &&
+                !IsBlank(drpDocumentType.Selected) &&
+                !IsBlank(drpMeetingType.Selected) &&
+                !IsBlank(dpMeetingDate.SelectedDate) &&
+                !IsBlank(Trim(txtShortTitle.Text))
+            );
+            If(
+                !locFormValid,
+                Notify("Please complete all required fields.", NotificationType.Error),
+                Set(locUploadBusy, true);
+                IfError(
+                    Patch(
+                        Draft,
+                        Defaults(Draft),
+                        {
+                            ExecWS_LifecycleState: {Value: "Draft"},
+                            ExecWS_DocumentType: drpDocumentType.Selected.Value,
+                            ExecWS_MeetingType: drpMeetingType.Selected,
+                            ExecWS_MeetingDate: dpMeetingDate.SelectedDate,
+                            ExecWS_MeetingCycle: locDerivedMeetingCycle,
+                            ExecWS_MeetingDecisionId: locDerivedDecisionId,
+                            ExecWS_PackVersion: Value(txtPackVersion.Text),
+                            ExecWS_SensitivityClassification: drpSensitivity.Selected
+                        }
+                    ),
+                    Set(locUploadBusy, false);
+                    Notify(Concatenate("Upload failed // ", FirstError.Message), NotificationType.Error);
+                );
+                Set(locUploadBusy, false);
+                Notify("Document uploaded to Draft library.", NotificationType.Success);
+                Navigate(scrDocBrowser, ScreenTransition.None);
+            );

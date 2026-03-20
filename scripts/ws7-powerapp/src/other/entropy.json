@@ -1,0 +1,8 @@
+{
+    "TopParent": {
+        "Name": "ExecWorkspace-App",
+        "ControlUniqueId": ""
+    },
+    "AppVersionNumber": "1.0.0",
+    "_comment": "Entropy file tracks volatile or auto-generated values. Updated by Power Apps Studio on save."
+}

@@ -1,0 +1,312 @@
+scrDocDetail As Screen:
+    OnVisible: |-
+        =Set(
+            locCanSubmitForReview,
+            gblIsAuthor && locSelectedDocLibrary = "Draft" &&
+            locSelectedDoc.ExecWS_LifecycleState.Value = "Draft"
+        );
+        Set(
+            locCanApprove,
+            gblIsReviewer && locSelectedDocLibrary = "Review" &&
+            locSelectedDoc.ExecWS_LifecycleState.Value = "Review"
+        );
+        Set(
+            locCanArchive,
+            gblIsCompliance && locSelectedDocLibrary = "Approved" &&
+            locSelectedDoc.ExecWS_LifecycleState.Value = "Approved"
+        );
+        Set(locActionBusy, false);
+        Set(locShowRejectComments, false);
+
+    cmpNav_Detail As cmpNavPanel:
+        ActiveScreen: ="scrDocBrowser"
+        X: =0
+        Y: =0
+        Width: =220
+        Height: =Parent.Height
+
+    btnBack As Button:
+        Text: ="← Back"
+        X: =240
+        Y: =12
+        Width: =80
+        Height: =32
+        Fill: =Transparent
+        Color: =RGBA(0, 120, 212, 1)
+        BorderThickness: =0
+        OnSelect: =Back()
+
+    lblDetailTitle As Label:
+        Text: =locSelectedDoc.{Name}
+        X: =240
+        Y: =48
+        Width: =Parent.Width - 500
+        Height: =36
+        Size: =20
+        FontWeight: =FontWeight.Semibold
+        Color: =RGBA(50, 49, 48, 1)
+
+    lblDetailBadge As Label:
+        Text: =locSelectedDoc.ExecWS_LifecycleState.Value
+        X: =Parent.Width - 180
+        Y: =52
+        Width: =120
+        Height: =28
+        Size: =12
+        FontWeight: =FontWeight.Semibold
+        Align: =Align.Center
+        BorderRadius: =14
+        Color: |-
+            =Switch(
+                locSelectedDoc.ExecWS_LifecycleState.Value,
+                "Draft", RGBA(0, 120, 212, 1),
+                "Review", RGBA(152, 111, 11, 1),
+                "Approved", RGBA(16, 124, 16, 1),
+                RGBA(115, 115, 115, 1)
+            )
+        Fill: |-
+            =Switch(
+                locSelectedDoc.ExecWS_LifecycleState.Value,
+                "Draft", RGBA(0, 120, 212, 0.1),
+                "Review", RGBA(255, 185, 0, 0.1),
+                "Approved", RGBA(16, 124, 16, 0.1),
+                RGBA(115, 115, 115, 0.1)
+            )
+
+    rectMetaCard As Rectangle:
+        X: =240
+        Y: =96
+        Width: =Parent.Width - 264
+        Height: =280
+        Fill: =RGBA(255, 255, 255, 1)
+        BorderColor: =RGBA(237, 235, 233, 1)
+        BorderThickness: =1
+        BorderRadius: =8
+
+    lblMetaDocTypeL As Label:
+        Text: ="Document Type"
+        X: =260
+        Y: =112
+        Width: =140
+        Size: =12
+        Color: =RGBA(96, 94, 92, 1)
+    lblMetaDocTypeV As Label:
+        Text: =locSelectedDoc.ExecWS_DocumentType
+        X: =400
+        Y: =112
+        Width: =300
+        Size: =14
+        Color: =RGBA(50, 49, 48, 1)
+
+    lblMetaMeetingTypeL As Label:
+        Text: ="Meeting Type"
+        X: =260
+        Y: =140
+        Width: =140
+        Size: =12
+        Color: =RGBA(96, 94, 92, 1)
+    lblMetaMeetingTypeV As Label:
+        Text: =locSelectedDoc.ExecWS_MeetingType.Value
+        X: =400
+        Y: =140
+        Width: =300
+        Size: =14
+        Color: =RGBA(50, 49, 48, 1)
+
+    lblMetaDateL As Label:
+        Text: ="Meeting Date"
+        X: =260
+        Y: =168
+        Width: =140
+        Size: =12
+        Color: =RGBA(96, 94, 92, 1)
+    lblMetaDateV As Label:
+        Text: =Text(locSelectedDoc.ExecWS_MeetingDate, "dd MMM yyyy")
+        X: =400
+        Y: =168
+        Width: =300
+        Size: =14
+        Color: =RGBA(50, 49, 48, 1)
+
+    lblMetaCycleL As Label:
+        Text: ="Meeting Cycle"
+        X: =260
+        Y: =196
+        Width: =140
+        Size: =12
+        Color: =RGBA(96, 94, 92, 1)
+    lblMetaCycleV As Label:
+        Text: =locSelectedDoc.ExecWS_MeetingCycle
+        X: =400
+        Y: =196
+        Width: =300
+        Size: =14
+        Color: =RGBA(50, 49, 48, 1)
+
+    lblMetaIdL As Label:
+        Text: ="Decision ID"
+        X: =260
+        Y: =224
+        Width: =140
+        Size: =12
+        Color: =RGBA(96, 94, 92, 1)
+    lblMetaIdV As Label:
+        Text: =locSelectedDoc.ExecWS_MeetingDecisionId
+        X: =400
+        Y: =224
+        Width: =300
+        Size: =14
+        Color: =RGBA(50, 49, 48, 1)
+
+    lblMetaVersionL As Label:
+        Text: ="Pack Version"
+        X: =260
+        Y: =252
+        Width: =140
+        Size: =12
+        Color: =RGBA(96, 94, 92, 1)
+    lblMetaVersionV As Label:
+        Text: =Concatenate("v", Text(locSelectedDoc.ExecWS_PackVersion))
+        X: =400
+        Y: =252
+        Width: =300
+        Size: =14
+        Color: =RGBA(50, 49, 48, 1)
+
+    lblMetaOwnerL As Label:
+        Text: ="Owner"
+        X: =260
+        Y: =280
+        Width: =140
+        Size: =12
+        Color: =RGBA(96, 94, 92, 1)
+    lblMetaOwnerV As Label:
+        Text: =locSelectedDoc.ExecWS_DocumentOwner.DisplayName
+        X: =400
+        Y: =280
+        Width: =300
+        Size: =14
+        Color: =RGBA(50, 49, 48, 1)
+
+    lblMetaSensL As Label:
+        Text: ="Sensitivity"
+        X: =260
+        Y: =308
+        Width: =140
+        Size: =12
+        Color: =RGBA(96, 94, 92, 1)
+    lblMetaSensV As Label:
+        Text: =locSelectedDoc.ExecWS_SensitivityClassification.Value
+        X: =400
+        Y: =308
+        Width: =300
+        Size: =14
+        Color: =RGBA(50, 49, 48, 1)
+
+    lblMetaModifiedL As Label:
+        Text: ="Modified"
+        X: =260
+        Y: =336
+        Width: =140
+        Size: =12
+        Color: =RGBA(96, 94, 92, 1)
+    lblMetaModifiedV As Label:
+        Text: =Text(locSelectedDoc.Modified, "dd MMM yyyy HH:mm")
+        X: =400
+        Y: =336
+        Width: =300
+        Size: =14
+        Color: =RGBA(50, 49, 48, 1)
+
+    btnOpenInSP As Button:
+        Text: ="Open in SharePoint ↗"
+        X: =240
+        Y: =Parent.Height - 64
+        Width: =200
+        Height: =40
+        Fill: =RGBA(255, 255, 255, 1)
+        Color: =RGBA(0, 120, 212, 1)
+        BorderColor: =RGBA(0, 120, 212, 1)
+        BorderThickness: =1
+        BorderRadius: =4
+        OnSelect: =Launch(locSelectedDoc.{Link})
+
+    btnSubmitForReview As Button:
+        Text: ="Submit for Review →"
+        X: =Parent.Width - 240
+        Y: =Parent.Height - 64
+        Width: =200
+        Height: =40
+        Fill: =RGBA(0, 120, 212, 1)
+        Color: =RGBA(255, 255, 255, 1)
+        BorderRadius: =4
+        Visible: =locCanSubmitForReview
+        DisplayMode: =If(locActionBusy, DisplayMode.Disabled, DisplayMode.Edit)
+        OnSelect: |-
+            =Set(locActionBusy, true);
+            IfError(
+                Patch(
+                    Draft,
+                    locSelectedDoc,
+                    { ExecWS_LifecycleState: {Value: "Review"} }
+                ),
+                Set(locActionBusy, false);
+                Notify("Failed to submit // " & FirstError.Message, NotificationType.Error);
+            );
+            Set(locActionBusy, false);
+            Notify("Submitted for review. Document will move to Review library within 2 minutes.", NotificationType.Success);
+            Navigate(scrDocBrowser, ScreenTransition.None);
+
+    btnApprove As Button:
+        Text: ="✓ Approve"
+        X: =Parent.Width - 340
+        Y: =Parent.Height - 64
+        Width: =140
+        Height: =40
+        Fill: =RGBA(16, 124, 16, 1)
+        Color: =RGBA(255, 255, 255, 1)
+        BorderRadius: =4
+        Visible: =locCanApprove
+        DisplayMode: =If(locActionBusy, DisplayMode.Disabled, DisplayMode.Edit)
+        OnSelect: |-
+            =Set(locActionBusy, true);
+            Notify("Approval submitted. Document will move to Approved library.", NotificationType.Success);
+            Set(locActionBusy, false);
+            Navigate(scrDocBrowser, ScreenTransition.None);
+
+    btnReject As Button:
+        Text: ="✗ Reject"
+        X: =Parent.Width - 180
+        Y: =Parent.Height - 64
+        Width: =140
+        Height: =40
+        Fill: =RGBA(209, 52, 56, 1)
+        Color: =RGBA(255, 255, 255, 1)
+        BorderRadius: =4
+        Visible: =locCanApprove
+        DisplayMode: =If(locActionBusy, DisplayMode.Disabled, DisplayMode.Edit)
+        OnSelect: =Set(locShowRejectComments, true)
+
+    btnArchive As Button:
+        Text: ="Archive"
+        X: =Parent.Width - 180
+        Y: =Parent.Height - 64
+        Width: =140
+        Height: =40
+        Fill: =RGBA(115, 115, 115, 1)
+        Color: =RGBA(255, 255, 255, 1)
+        BorderRadius: =4
+        Visible: =locCanArchive
+        DisplayMode: =If(locActionBusy, DisplayMode.Disabled, DisplayMode.Edit)
+        OnSelect: |-
+            =Set(locActionBusy, true);
+            IfError(
+                ExecWSApprovedToArchive.Run(
+                    {documentId: Text(locSelectedDoc.ID)}
+                ),
+                Set(locActionBusy, false);
+                Notify("Archive failed // " & FirstError.Message, NotificationType.Error);
+            );
+            Set(locActionBusy, false);
+            Notify("Archive started. Document will move to Archive shortly.", NotificationType.Success);
+            Navigate(scrDocBrowser, ScreenTransition.None);

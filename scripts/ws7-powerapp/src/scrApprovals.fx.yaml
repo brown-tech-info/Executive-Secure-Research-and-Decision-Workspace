@@ -1,0 +1,194 @@
+scrApprovals As Screen:
+    OnVisible: |-
+        =Set(locApprovalsTab, "Pending");
+        Set(locApprovalBusy, false);
+
+    cmpNav_Approvals As cmpNavPanel:
+        ActiveScreen: ="scrApprovals"
+        X: =0
+        Y: =0
+        Width: =220
+        Height: =Parent.Height
+
+    lblApprovalsTitle As Label:
+        Text: ="Approvals"
+        X: =240
+        Y: =16
+        Width: =200
+        Height: =40
+        Size: =28
+        FontWeight: =FontWeight.Semibold
+        Color: =RGBA(50, 49, 48, 1)
+
+    btnTabPending As Button:
+        Text: ="Pending"
+        X: =240
+        Y: =64
+        Width: =120
+        Height: =36
+        Fill: =If(locApprovalsTab = "Pending", RGBA(0, 120, 212, 0.1), RGBA(255, 255, 255, 1))
+        Color: =If(locApprovalsTab = "Pending", RGBA(0, 120, 212, 1), RGBA(96, 94, 92, 1))
+        BorderColor: =RGBA(237, 235, 233, 1)
+        BorderThickness: =1
+        BorderRadius: =4
+        OnSelect: =Set(locApprovalsTab, "Pending")
+
+    btnTabHistory As Button:
+        Text: ="History"
+        X: =368
+        Y: =64
+        Width: =120
+        Height: =36
+        Fill: =If(locApprovalsTab = "History", RGBA(0, 120, 212, 0.1), RGBA(255, 255, 255, 1))
+        Color: =If(locApprovalsTab = "History", RGBA(0, 120, 212, 1), RGBA(96, 94, 92, 1))
+        BorderColor: =RGBA(237, 235, 233, 1)
+        BorderThickness: =1
+        BorderRadius: =4
+        OnSelect: =Set(locApprovalsTab, "History")
+
+    galPending As Gallery.galleryVertical:
+        X: =240
+        Y: =112
+        Width: =Parent.Width - 264
+        Height: =Parent.Height - 132
+        Visible: =locApprovalsTab = "Pending"
+        Fill: =RGBA(255, 255, 255, 1)
+        BorderColor: =RGBA(237, 235, 233, 1)
+        BorderThickness: =1
+        BorderRadius: =8
+        TemplatePadding: =8
+        TemplateSize: =140
+        Items: |-
+            =Filter(
+                Approvals,
+                Status = "Pending"
+            )
+
+        lblPendingTitle As Label:
+            Text: =ThisItem.Title
+            X: =12
+            Y: =4
+            Width: =Parent.TemplateWidth - 160
+            Height: =28
+            Size: =14
+            FontWeight: =FontWeight.Semibold
+            Color: =RGBA(50, 49, 48, 1)
+
+        lblPendingBadge As Label:
+            Text: ="⏳ PENDING"
+            X: =Parent.TemplateWidth - 120
+            Y: =8
+            Width: =100
+            Height: =24
+            Size: =11
+            FontWeight: =FontWeight.Semibold
+            Align: =Align.Center
+            Color: =RGBA(152, 111, 11, 1)
+            Fill: =RGBA(255, 185, 0, 0.1)
+            BorderRadius: =12
+
+        lblPendingMeta As Label:
+            Text: |-
+                =Concatenate(
+                    "Submitted by // ", ThisItem.Requestor.DisplayName,
+                    " │ ", Text(ThisItem.CreatedDate, "dd MMM yyyy")
+                )
+            X: =12
+            Y: =34
+            Width: =Parent.TemplateWidth - 40
+            Height: =18
+            Size: =11
+            Color: =RGBA(96, 94, 92, 1)
+
+        lblPendingDetails As Label:
+            Text: =ThisItem.Details
+            X: =12
+            Y: =54
+            Width: =Parent.TemplateWidth - 40
+            Height: =18
+            Size: =11
+            Color: =RGBA(96, 94, 92, 1)
+
+        txtPendingComments As TextInput:
+            HintText: ="Add comments (required for rejection)..."
+            X: =12
+            Y: =76
+            Width: =Parent.TemplateWidth - 40
+            Height: =32
+            Size: =12
+            BorderColor: =RGBA(237, 235, 233, 1)
+
+        btnInlineApprove As Button:
+            Text: ="✓ Approve"
+            X: =12
+            Y: =114
+            Width: =120
+            Height: =32
+            Fill: =RGBA(16, 124, 16, 1)
+            Color: =RGBA(255, 255, 255, 1)
+            BorderRadius: =4
+            Size: =12
+            DisplayMode: =If(locApprovalBusy, DisplayMode.Disabled, DisplayMode.Edit)
+            OnSelect: |-
+                =Set(locApprovalBusy, true);
+                IfError(
+                    'ApprovalConnector'.RespondToApproval(
+                        ThisItem.ID,
+                        {
+                            response: "Approve",
+                            comments: If(
+                                IsBlank(txtPendingComments.Text),
+                                "Approved via ExecWorkspace app",
+                                txtPendingComments.Text
+                            )
+                        }
+                    ),
+                    Set(locApprovalBusy, false);
+                    Notify("Approval failed // " & FirstError.Message, NotificationType.Error);
+                );
+                Set(locApprovalBusy, false);
+                Notify(Concatenate("'", ThisItem.Title, "' approved."), NotificationType.Success);
+                Refresh(Approvals);
+
+        btnInlineReject As Button:
+            Text: ="✗ Reject"
+            X: =144
+            Y: =114
+            Width: =120
+            Height: =32
+            Fill: =RGBA(209, 52, 56, 1)
+            Color: =RGBA(255, 255, 255, 1)
+            BorderRadius: =4
+            Size: =12
+            DisplayMode: =If(locApprovalBusy, DisplayMode.Disabled, DisplayMode.Edit)
+            OnSelect: |-
+                =If(
+                    IsBlank(Trim(txtPendingComments.Text)),
+                    Notify("Please provide rejection comments.", NotificationType.Error),
+                    Set(locApprovalBusy, true);
+                    IfError(
+                        'ApprovalConnector'.RespondToApproval(
+                            ThisItem.ID,
+                            {
+                                response: "Reject",
+                                comments: txtPendingComments.Text
+                            }
+                        ),
+                        Set(locApprovalBusy, false);
+                        Notify("Rejection failed // " & FirstError.Message, NotificationType.Error);
+                    );
+                    Set(locApprovalBusy, false);
+                    Notify(Concatenate("'", ThisItem.Title, "' rejected."), NotificationType.Warning);
+                    Refresh(Approvals);
+                );
+
+    lblNoPending As Label:
+        Text: ="✓ No pending approvals — you're all caught up!"
+        X: =240
+        Y: =300
+        Width: =Parent.Width - 264
+        Height: =40
+        Size: =16
+        Align: =Align.Center
+        Color: =RGBA(96, 94, 92, 1)
+        Visible: =locApprovalsTab = "Pending" && CountRows(galPending.AllItems) = 0

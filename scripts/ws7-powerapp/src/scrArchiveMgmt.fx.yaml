@@ -1,0 +1,287 @@
+scrArchiveMgmt As Screen:
+    OnVisible: |-
+        =Set(locArchiveTab, "Eligible");
+        Set(locArchiveBusy, false);
+        Set(locShowArchiveConfirm, false);
+        ClearCollect(colSelectedDocs, Blank());
+        Clear(colSelectedDocs);
+
+    cmpNav_Archive As cmpNavPanel:
+        ActiveScreen: ="scrArchiveMgmt"
+        X: =0
+        Y: =0
+        Width: =220
+        Height: =Parent.Height
+
+    lblArchiveTitle As Label:
+        Text: ="Archive Management"
+        X: =240
+        Y: =16
+        Width: =300
+        Height: =40
+        Size: =28
+        FontWeight: =FontWeight.Semibold
+        Color: =RGBA(50, 49, 48, 1)
+
+    btnTabEligible As Button:
+        Text: ="Eligible for Archival"
+        X: =240
+        Y: =64
+        Width: =180
+        Height: =36
+        Fill: =If(locArchiveTab = "Eligible", RGBA(0, 120, 212, 0.1), RGBA(255, 255, 255, 1))
+        Color: =If(locArchiveTab = "Eligible", RGBA(0, 120, 212, 1), RGBA(96, 94, 92, 1))
+        BorderColor: =RGBA(237, 235, 233, 1)
+        BorderThickness: =1
+        BorderRadius: =4
+        OnSelect: =Set(locArchiveTab, "Eligible")
+
+    btnTabArchived As Button:
+        Text: ="Archived"
+        X: =432
+        Y: =64
+        Width: =120
+        Height: =36
+        Fill: =If(locArchiveTab = "Archived", RGBA(0, 120, 212, 0.1), RGBA(255, 255, 255, 1))
+        Color: =If(locArchiveTab = "Archived", RGBA(0, 120, 212, 1), RGBA(96, 94, 92, 1))
+        BorderColor: =RGBA(237, 235, 233, 1)
+        BorderThickness: =1
+        BorderRadius: =4
+        OnSelect: =Set(locArchiveTab, "Archived")
+
+    lblArchiveWarning As Label:
+        Text: ="⚠ Archived documents will be moved to the Archive library with a 7-year retention label applied."
+        X: =240
+        Y: =108
+        Width: =Parent.Width - 264
+        Height: =28
+        Size: =12
+        Fill: =RGBA(255, 244, 206, 1)
+        Color: =RGBA(152, 111, 11, 1)
+        Visible: =locArchiveTab = "Eligible"
+
+    galEligible As Gallery.galleryVertical:
+        X: =240
+        Y: =144
+        Width: =Parent.Width - 264
+        Height: =Parent.Height - 240
+        Visible: =locArchiveTab = "Eligible"
+        Fill: =RGBA(255, 255, 255, 1)
+        BorderColor: =RGBA(237, 235, 233, 1)
+        BorderThickness: =1
+        BorderRadius: =8
+        TemplatePadding: =4
+        TemplateSize: =64
+        Items: |-
+            =SortByColumns(
+                Filter(
+                    Approved,
+                    ExecWS_LifecycleState.Value = "Approved"
+                ),
+                "ExecWS_MeetingDate", SortOrder.Descending
+            )
+
+        chkSelect As CheckBox:
+            X: =12
+            Y: =20
+            Width: =24
+            Height: =24
+            OnCheck: =Collect(colSelectedDocs, ThisItem)
+            OnUncheck: =Remove(colSelectedDocs, LookUp(colSelectedDocs, ID = ThisItem.ID))
+
+        lblEligibleName As Label:
+            Text: =ThisItem.{Name}
+            X: =48
+            Y: =4
+            Width: =Parent.TemplateWidth - 200
+            Height: =28
+            Size: =14
+            FontWeight: =FontWeight.Semibold
+            Color: =RGBA(50, 49, 48, 1)
+
+        lblEligibleBadge As Label:
+            Text: ="APPROVED"
+            X: =Parent.TemplateWidth - 120
+            Y: =8
+            Width: =100
+            Height: =24
+            Size: =11
+            FontWeight: =FontWeight.Semibold
+            Align: =Align.Center
+            Color: =RGBA(16, 124, 16, 1)
+            Fill: =RGBA(16, 124, 16, 0.1)
+            BorderRadius: =12
+
+        lblEligibleMeta As Label:
+            Text: |-
+                =Concatenate(
+                    ThisItem.ExecWS_DocumentType, " │ ",
+                    ThisItem.ExecWS_MeetingCycle, " │ ",
+                    Text(ThisItem.ExecWS_MeetingDate, "dd MMM yyyy")
+                )
+            X: =48
+            Y: =34
+            Width: =Parent.TemplateWidth - 80
+            Height: =20
+            Size: =11
+            Color: =RGBA(96, 94, 92, 1)
+
+    lblSelectionCount As Label:
+        Text: =Concatenate(Text(CountRows(colSelectedDocs)), " document(s) selected")
+        X: =240
+        Y: =Parent.Height - 80
+        Width: =300
+        Height: =24
+        Size: =13
+        Color: =RGBA(50, 49, 48, 1)
+        Visible: =locArchiveTab = "Eligible" && CountRows(colSelectedDocs) > 0
+
+    btnArchiveSelected As Button:
+        Text: =Concatenate("Archive Selected (", Text(CountRows(colSelectedDocs)), ") →")
+        X: =Parent.Width - 280
+        Y: =Parent.Height - 84
+        Width: =240
+        Height: =40
+        Fill: =RGBA(115, 115, 115, 1)
+        Color: =RGBA(255, 255, 255, 1)
+        BorderRadius: =4
+        Visible: =locArchiveTab = "Eligible" && CountRows(colSelectedDocs) > 0
+        DisplayMode: =If(locArchiveBusy, DisplayMode.Disabled, DisplayMode.Edit)
+        OnSelect: =Set(locShowArchiveConfirm, true)
+
+    rectConfirmOverlay As Rectangle:
+        X: =0
+        Y: =0
+        Width: =Parent.Width
+        Height: =Parent.Height
+        Fill: =RGBA(0, 0, 0, 0.4)
+        Visible: =locShowArchiveConfirm
+
+    rectConfirmDialog As Rectangle:
+        X: =(Parent.Width - 480) / 2
+        Y: =(Parent.Height - 220) / 2
+        Width: =480
+        Height: =220
+        Fill: =RGBA(255, 255, 255, 1)
+        BorderRadius: =8
+        Visible: =locShowArchiveConfirm
+
+    lblConfirmTitle As Label:
+        Text: ="Confirm Archive"
+        X: =(Parent.Width - 480) / 2 + 24
+        Y: =(Parent.Height - 220) / 2 + 16
+        Width: =432
+        Height: =28
+        Size: =18
+        FontWeight: =FontWeight.Semibold
+        Color: =RGBA(50, 49, 48, 1)
+        Visible: =locShowArchiveConfirm
+
+    lblConfirmMsg As Label:
+        Text: |-
+            =Concatenate(
+                "You are about to archive ",
+                Text(CountRows(colSelectedDocs)),
+                " document(s). This action moves them to the Archive library with a 7-year retention label. This cannot be undone."
+            )
+        X: =(Parent.Width - 480) / 2 + 24
+        Y: =(Parent.Height - 220) / 2 + 52
+        Width: =432
+        Height: =80
+        Size: =13
+        Color: =RGBA(96, 94, 92, 1)
+        Visible: =locShowArchiveConfirm
+
+    btnConfirmCancel As Button:
+        Text: ="Cancel"
+        X: =(Parent.Width - 480) / 2 + 240
+        Y: =(Parent.Height - 220) / 2 + 160
+        Width: =100
+        Height: =36
+        Fill: =RGBA(255, 255, 255, 1)
+        Color: =RGBA(50, 49, 48, 1)
+        BorderColor: =RGBA(237, 235, 233, 1)
+        BorderThickness: =1
+        BorderRadius: =4
+        Visible: =locShowArchiveConfirm
+        OnSelect: =Set(locShowArchiveConfirm, false)
+
+    btnConfirmArchive As Button:
+        Text: ="Archive"
+        X: =(Parent.Width - 480) / 2 + 356
+        Y: =(Parent.Height - 220) / 2 + 160
+        Width: =100
+        Height: =36
+        Fill: =RGBA(209, 52, 56, 1)
+        Color: =RGBA(255, 255, 255, 1)
+        BorderRadius: =4
+        Visible: =locShowArchiveConfirm
+        OnSelect: |-
+            =Set(locShowArchiveConfirm, false);
+            Set(locArchiveBusy, true);
+            ForAll(
+                colSelectedDocs,
+                IfError(
+                    ExecWSApprovedToArchive.Run({documentId: Text(ID)}),
+                    Notify(Concatenate("Failed to archive '", '{Name}', "'"), NotificationType.Error);
+                )
+            );
+            Set(locArchiveBusy, false);
+            Clear(colSelectedDocs);
+            Notify("Archive process started for selected documents.", NotificationType.Success);
+            Refresh(Approved);
+
+    galArchived As Gallery.galleryVertical:
+        X: =240
+        Y: =112
+        Width: =Parent.Width - 264
+        Height: =Parent.Height - 132
+        Visible: =locArchiveTab = "Archived"
+        Fill: =RGBA(255, 255, 255, 1)
+        BorderColor: =RGBA(237, 235, 233, 1)
+        BorderThickness: =1
+        BorderRadius: =8
+        TemplatePadding: =4
+        TemplateSize: =64
+        Items: |-
+            =SortByColumns(
+                Archive,
+                "Modified", SortOrder.Descending
+            )
+
+        lblArchivedName As Label:
+            Text: =ThisItem.{Name}
+            X: =12
+            Y: =4
+            Width: =Parent.TemplateWidth - 200
+            Height: =28
+            Size: =14
+            FontWeight: =FontWeight.Semibold
+            Color: =RGBA(50, 49, 48, 1)
+
+        lblArchivedBadge As Label:
+            Text: ="ARCHIVED"
+            X: =Parent.TemplateWidth - 120
+            Y: =8
+            Width: =100
+            Height: =24
+            Size: =11
+            FontWeight: =FontWeight.Semibold
+            Align: =Align.Center
+            Color: =RGBA(115, 115, 115, 1)
+            Fill: =RGBA(115, 115, 115, 0.1)
+            BorderRadius: =12
+
+        lblArchivedMeta As Label:
+            Text: |-
+                =Concatenate(
+                    ThisItem.ExecWS_DocumentType, " │ ",
+                    ThisItem.ExecWS_MeetingCycle, " │ Archived ",
+                    Text(ThisItem.Modified, "dd MMM yyyy")
+                )
+            X: =12
+            Y: =34
+            Width: =Parent.TemplateWidth - 40
+            Height: =20
+            Size: =11
+            Color: =RGBA(96, 94, 92, 1)

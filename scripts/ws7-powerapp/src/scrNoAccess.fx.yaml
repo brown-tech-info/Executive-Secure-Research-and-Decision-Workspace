@@ -1,0 +1,51 @@
+scrNoAccess As Screen:
+    Fill: =RGBA(250, 249, 248, 1)
+
+    icoLock As Classic/Icon:
+        Icon: =Icon.Lock
+        X: =(Parent.Width - 64) / 2
+        Y: =Parent.Height / 2 - 120
+        Width: =64
+        Height: =64
+        Color: =RGBA(96, 94, 92, 0.5)
+
+    lblNoAccessTitle As Label:
+        Text: ="Access Restricted"
+        X: =(Parent.Width - 400) / 2
+        Y: =Parent.Height / 2 - 40
+        Width: =400
+        Height: =40
+        Size: =28
+        FontWeight: =FontWeight.Semibold
+        Color: =RGBA(50, 49, 48, 1)
+        Align: =Align.Center
+
+    lblNoAccessMessage As Label:
+        Text: ="You do not have access to the Executive Workspace."
+        X: =(Parent.Width - 500) / 2
+        Y: =Parent.Height / 2 + 8
+        Width: =500
+        Height: =28
+        Size: =14
+        Color: =RGBA(96, 94, 92, 1)
+        Align: =Align.Center
+
+    lblNoAccessUser As Label:
+        Text: =Concatenate("Signed in as // ", gblUserEmail)
+        X: =(Parent.Width - 500) / 2
+        Y: =Parent.Height / 2 + 44
+        Width: =500
+        Height: =28
+        Size: =12
+        Color: =RGBA(96, 94, 92, 1)
+        Align: =Align.Center
+
+    lblNoAccessContact As Label:
+        Text: ="Contact your administrator to request access."
+        X: =(Parent.Width - 500) / 2
+        Y: =Parent.Height / 2 + 80
+        Width: =500
+        Height: =28
+        Size: =14
+        Color: =RGBA(96, 94, 92, 1)
+        Align: =Align.Center

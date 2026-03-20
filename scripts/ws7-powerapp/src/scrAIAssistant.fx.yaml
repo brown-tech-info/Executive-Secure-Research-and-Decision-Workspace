@@ -1,0 +1,157 @@
+scrAIAssistant As Screen:
+
+    cmpNav_AI As cmpNavPanel:
+        ActiveScreen: ="scrAIAssistant"
+        X: =0
+        Y: =0
+        Width: =220
+        Height: =Parent.Height
+
+    lblAITitle As Label:
+        Text: ="AI Assistant"
+        X: =240
+        Y: =16
+        Width: =200
+        Height: =40
+        Size: =28
+        FontWeight: =FontWeight.Semibold
+        Color: =RGBA(50, 49, 48, 1)
+
+    lblAIPoweredBy As Label:
+        Text: ="Powered by Copilot Studio • Approved content only • Read-only"
+        X: =240
+        Y: =52
+        Width: =500
+        Height: =20
+        Size: =11
+        Color: =RGBA(96, 94, 92, 1)
+
+    btnToggleFullScreen As Button:
+        Text: =If(locAIFullScreen, "Side Panel", "Full Screen")
+        X: =Parent.Width - 160
+        Y: =20
+        Width: =120
+        Height: =36
+        Fill: =RGBA(255, 255, 255, 1)
+        Color: =RGBA(0, 120, 212, 1)
+        BorderColor: =RGBA(0, 120, 212, 1)
+        BorderThickness: =1
+        BorderRadius: =4
+        OnSelect: |-
+            =Set(locAIFullScreen, !locAIFullScreen);
+            Set(locShowPromptPanel, !locAIFullScreen);
+
+    rectPromptPanel As Rectangle:
+        X: =240
+        Y: =80
+        Width: =260
+        Height: =Parent.Height - 100
+        Fill: =RGBA(255, 255, 255, 1)
+        BorderColor: =RGBA(237, 235, 233, 1)
+        BorderThickness: =1
+        BorderRadius: =8
+        Visible: =locShowPromptPanel && !locAIFullScreen
+
+    lblPromptHeader As Label:
+        Text: ="Suggested Prompts"
+        X: =252
+        Y: =92
+        Width: =220
+        Height: =24
+        Size: =14
+        FontWeight: =FontWeight.Semibold
+        Color: =RGBA(50, 49, 48, 1)
+        Visible: =locShowPromptPanel && !locAIFullScreen
+
+    btnPrompt1 As Button:
+        Text: ="Summarise the latest Board pack"
+        X: =252
+        Y: =124
+        Width: =236
+        Height: =56
+        Fill: =Transparent
+        Color: =RGBA(0, 120, 212, 1)
+        BorderColor: =RGBA(0, 120, 212, 0.3)
+        BorderThickness: =1
+        BorderRadius: =8
+        Size: =12
+        Align: =Align.Left
+        PaddingLeft: =12
+        Visible: =locShowPromptPanel && !locAIFullScreen
+        OnSelect: =Set(locSuggestedPrompt, "Summarise the most recent Board meeting pack")
+
+    btnPrompt2 As Button:
+        Text: ="Key SteerCo decisions"
+        X: =252
+        Y: =188
+        Width: =236
+        Height: =56
+        Fill: =Transparent
+        Color: =RGBA(0, 120, 212, 1)
+        BorderColor: =RGBA(0, 120, 212, 0.3)
+        BorderThickness: =1
+        BorderRadius: =8
+        Size: =12
+        Align: =Align.Left
+        PaddingLeft: =12
+        Visible: =locShowPromptPanel && !locAIFullScreen
+        OnSelect: =Set(locSuggestedPrompt, "What were the key decisions from the latest SteerCo meeting?")
+
+    btnPrompt3 As Button:
+        Text: ="Compare Q1 vs Q2 results"
+        X: =252
+        Y: =252
+        Width: =236
+        Height: =56
+        Fill: =Transparent
+        Color: =RGBA(0, 120, 212, 1)
+        BorderColor: =RGBA(0, 120, 212, 0.3)
+        BorderThickness: =1
+        BorderRadius: =8
+        Size: =12
+        Align: =Align.Left
+        PaddingLeft: =12
+        Visible: =locShowPromptPanel && !locAIFullScreen
+        OnSelect: =Set(locSuggestedPrompt, "Compare the Q1 and Q2 results from the approved documents")
+
+    btnPrompt4 As Button:
+        Text: ="Current cycle overview"
+        X: =252
+        Y: =316
+        Width: =236
+        Height: =56
+        Fill: =Transparent
+        Color: =RGBA(0, 120, 212, 1)
+        BorderColor: =RGBA(0, 120, 212, 0.3)
+        BorderThickness: =1
+        BorderRadius: =8
+        Size: =12
+        Align: =Align.Left
+        PaddingLeft: =12
+        Visible: =locShowPromptPanel && !locAIFullScreen
+        OnSelect: =Set(locSuggestedPrompt, "Give me an overview of all documents in the current meeting cycle")
+
+    lblSecurityNotice As Label:
+        Text: ="This assistant can only access documents in the Approved library. All queries are logged."
+        X: =240
+        Y: =Parent.Height - 32
+        Width: =Parent.Width - 264
+        Height: =24
+        Size: =11
+        Color: =RGBA(96, 94, 92, 1)
+        Align: =Align.Center
+
+    // ═══════════════════════════════════════════════════════════════
+    // NOTE: The Copilot Studio Chatbot control must be added
+    // manually in Power Apps Studio after importing the .msapp:
+    //
+    // 1. Insert → AI → Chatbot
+    // 2. Select "ExecWorkspace-Copilot" from the agent list
+    // 3. Position: X=If(locShowPromptPanel, 510, 240), Y=80
+    // 4. Size: Width=Parent.Width - If(locShowPromptPanel, 534, 264)
+    //          Height=Parent.Height - 120
+    //
+    // The Chatbot control is not available in the .fx.yaml format
+    // because it requires runtime environment binding to the specific
+    // Copilot Studio bot instance.
+    // ═══════════════════════════════════════════════════════════════
