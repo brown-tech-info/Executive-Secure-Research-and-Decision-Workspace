@@ -172,6 +172,7 @@
 
 <nav>
   <a href="#architecture"  class="active">Solution Architecture</a>
+  <a href="#ui">Power Apps UI</a>
   <a href="#identity">Identity &amp; Access</a>
   <a href="#lifecycle">Document Lifecycle</a>
   <a href="#approval">Approval Workflow</a>
@@ -187,9 +188,10 @@
     <p style="font-size:15px;line-height:1.8;color:#323130;max-width:900px">
       The <strong>Executive Secure Research &amp; Decision Workspace</strong> is a governance-first digital environment built entirely on native Microsoft 365 services, designed to replace informal and uncontrolled methods of distributing sensitive research to executive and board-level stakeholders.
       It enforces a structured four-stage document lifecycle — <strong>Draft → Review → Approved → Archive</strong> — where each stage carries distinct access controls, sensitivity labels, and retention policies, all enforced automatically through Power Automate and Microsoft Purview without relying on user behaviour.
+      A <strong>Power Apps Canvas App</strong> provides the executive-grade user interface — a single, role-adaptive application that detects the signed-in user's Entra ID group membership and presents persona-appropriate screens for document management, approvals, AI-assisted research, and archive governance.
       Meeting cadence is built into the platform: Outlook calendar events for Board, SteerCo, and ExecTeam meetings automatically open a pre-tagged draft pack and notify authors. The Approved library surfaces meeting-specific views so executives see only the content relevant to their next meeting.
       Access is governed by Microsoft Entra ID security groups, gated by Conditional Access requiring MFA and a compliant device, and every interaction is captured in the Purview Unified Audit Log.
-      A scoped Copilot Studio AI agent gives authorised executives a secure, read-only way to query and summarise approved content — contained entirely within the tenant boundary, with no access to unapproved material and no connection to external data sources.
+      A scoped Copilot Studio AI agent — embedded within the Canvas App — gives authorised executives a secure, read-only way to query and summarise approved content, contained entirely within the tenant boundary, with no access to unapproved material and no connection to external data sources.
     </p>
   </div>
 
@@ -216,6 +218,14 @@ graph TB
         GRP["Security Groups\nAuthors · Reviewers\nExecutives · Compliance"]
       end
 
+      subgraph UIAPP["  Executive UI — Power Apps Canvas App  "]
+        DASHBOARD["🏠 Dashboard\nMetrics · Meetings · Quick Actions"]
+        DOCMGMT["📄 Document Management\nBrowse · Upload · Detail"]
+        APPROVALS["✅ Approvals Centre\nInline Approve / Reject"]
+        AICHAT["🤖 AI Chat Panel\nCopilot Studio Embed"]
+        ARCHIVEMGMT["🗄️ Archive Mgmt\nBulk Archival"]
+      end
+
       subgraph SPO["  Content Platform — SharePoint Online  "]
         DRAFT["📝 Draft\nLibrary"]
         REVIEW["🔍 Review\nLibrary"]
@@ -228,6 +238,7 @@ graph TB
         F2["Review → Approved\nApproval Flow"]
         F3["Approved → Archive\nManual Flow"]
         F4["Meeting Pack Open\nCalendar Flow"]
+        F5["Check User Roles\nGraph API Flow"]
       end
 
       subgraph PROTECT["  Information Protection — Microsoft Purview  "]
@@ -242,14 +253,20 @@ graph TB
       end
     end
 
-    USERS["👤  Executive Users"]:::external
-    APPROVERS["👤  Reviewers / Approvers"]:::external
+    USERS["👤  Executive Users\nAuthors · Reviewers · Executives · Compliance"]:::external
     CAL["📅  Outlook Calendar\nMeeting events"]:::external
 
     USERS -->|"MFA + Entra ID"| CA
-    APPROVERS -->|"MFA + Entra ID"| CA
-    CA --> SPO
-    CA --> AI
+    CA --> UIAPP
+
+    DASHBOARD --> SPO
+    DOCMGMT --> SPO
+    APPROVALS -->|"Approvals Connector"| F2
+    ARCHIVEMGMT -->|"Trigger archive"| F3
+    AICHAT --> AGENT
+
+    UIAPP -->|"Role detection"| F5
+    F5 -->|"checkMemberGroups"| GRP
 
     DRAFT -->|"LifecycleState = Review"| F1 --> REVIEW
     REVIEW -->|"LifecycleState = Approved"| F2 --> APPROVED
@@ -262,7 +279,6 @@ graph TB
     SPO -.->|"All events"| AUD
 
     AGENT -->|"Delegated read\n(Approved only)"| APPROVED
-    GRP -->|"Controls access to"| SPO
     PIM -->|"Elevated roles"| GRP
 
     classDef external fill:#f3f2f1,stroke:#8a8886,color:#323130
@@ -271,7 +287,85 @@ graph TB
       <div class="legend">
         <div class="legend-item"><div class="legend-dot" style="background:#0078d4"></div>Solid arrow = data / document flow</div>
         <div class="legend-item"><div class="legend-dot" style="background:#a19f9d"></div>Dashed arrow = policy / governance enforcement</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#5c2d91"></div>Power Apps Canvas App is the single entry point for all personas</div>
         <div class="legend-item"><div class="legend-dot" style="background:#107c10"></div>All components inside tenant boundary — no external services</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════
+       1b. POWER APPS UI ARCHITECTURE
+  ════════════════════════════════════════════════ -->
+  <section class="section" id="ui">
+    <div class="section-header">
+      <div class="section-icon" style="background:#e8daef">📱</div>
+      <div>
+        <h2>Power Apps UI Architecture</h2>
+        <p>The Canvas App provides a single, role-adaptive executive interface. Role detection occurs on launch via a helper flow calling Microsoft Graph. Each persona sees only their relevant screens and actions.</p>
+      </div>
+    </div>
+    <div class="diagram-card">
+      <div class="mermaid">
+graph TB
+    subgraph APP["📱  ExecWorkspace Canvas App"]
+      direction TB
+
+      ONSTART["App.OnStart\nRole Detection via Helper Flow\n(Graph API checkMemberGroups)"]
+
+      subgraph SCREENS["  Screens  "]
+        direction LR
+        SCR1["🏠 Dashboard\nMetrics · Meetings\nRecent approvals\nQuick actions"]
+        SCR2["📄 Document Browser\nRole-filtered galleries\nMeeting-cadence tabs\nSearch &amp; filter"]
+        SCR3["📤 Document Upload\nFile picker · Metadata form\nAuto-naming · Validation\n(Authors only)"]
+        SCR4["📋 Document Detail\nFull metadata view\nVersion history\nLifecycle actions"]
+        SCR5["✅ Approvals Centre\nPending queue\nInline approve / reject\nComments required\n(Reviewers only)"]
+        SCR6["🤖 AI Assistant\nCopilot Studio embed\nSuggested prompts\nApproved content only\n(Executives only)"]
+        SCR7["🗄️ Archive Mgmt\nEligible documents\nBulk selection\nConfirmation dialog\n(Compliance only)"]
+        SCR8["🔒 No Access\nFallback screen\nContact admin"]
+      end
+
+      NAV["Navigation Panel\nRole-based menu items\nDynamic visibility\nActive screen highlight"]
+    end
+
+    subgraph ROLES["👤  Persona Routing"]
+      direction LR
+      R_AUTH["Authors\nDashboard · Browser\nUpload · Detail"]
+      R_REV["Reviewers\nDashboard · Browser\nApprovals · Detail"]
+      R_EXEC["Executives\nDashboard · Browser\nAI Assistant · Detail"]
+      R_COMP["Compliance\nDashboard · Browser\nArchive Mgmt · Detail"]
+    end
+
+    subgraph CONNECTORS["🔌  Standard Connectors"]
+      direction LR
+      C_SPO["SharePoint\n4 libraries\nRead / Write / Upload"]
+      C_O365["Office 365 Users\nUser profile\nDisplay name · Email"]
+      C_APPR["Approvals\nPending items\nApprove / Reject"]
+      C_PA["Power Automate\nTrigger archive flow\nRole detection flow"]
+      C_CS["Copilot Studio\nEmbedded chatbot\n(Premium connector)"]
+    end
+
+    ONSTART -->|"Detect groups"| ROLES
+    R_AUTH --> SCR1 & SCR2 & SCR3 & SCR4
+    R_REV --> SCR1 & SCR2 & SCR5 & SCR4
+    R_EXEC --> SCR1 & SCR2 & SCR6 & SCR4
+    R_COMP --> SCR1 & SCR2 & SCR7 & SCR4
+    NAV --> SCREENS
+
+    SCR2 --> C_SPO
+    SCR3 --> C_SPO
+    SCR4 --> C_SPO
+    SCR5 --> C_APPR
+    SCR6 --> C_CS
+    SCR7 --> C_PA
+    ONSTART --> C_PA
+
+    classDef default fill:#fff,stroke:#c7c7c7
+      </div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#0078d4"></div>Canvas App uses delegated identity — all API calls execute as the signed-in user</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#5c2d91"></div>Role detection via helper Power Automate flow calling Graph API checkMemberGroups</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#107c10"></div>SharePoint permissions are the authoritative backstop — the app hides UI, it cannot bypass server-side controls</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#d83b01"></div>Copilot Studio connector is Premium — requires appropriate licensing</div>
       </div>
     </div>
   </section>
@@ -618,12 +712,19 @@ graph LR
 sequenceDiagram
     actor Executive
     participant CA as 🔑 Conditional Access\n(Entra ID)
+    participant App as 📱 ExecWorkspace\n(Canvas App)
     participant Agent as 🤖 ExecWorkspace-Copilot\n(Copilot Studio)
     participant SPO as ✅ Approved Library\n(SharePoint)
     participant Audit as 📋 Unified Audit Log\n(Purview)
 
     Executive->>CA: Sign in (MFA + compliant device)
     CA-->>Executive: Token issued
+
+    Executive->>App: Open Canvas App
+    Note over App: App.OnStart:\nRole detection via Graph API\nUser is in ExecWorkspace-Executives
+
+    Executive->>App: Navigate to AI Assistant screen
+    App->>Agent: Open embedded Copilot Studio panel
 
     Executive->>Agent: "Summarise the Q3 research pack"
     Note over Agent: Checks instructions:\nApproved content only\nRead-only · No web search
@@ -633,11 +734,12 @@ sequenceDiagram
 
     alt User is authorised
         SPO-->>Agent: Return matching documents
-        Agent-->>Executive: Summary with citations
+        Agent-->>App: Summary with citations
+        App-->>Executive: Display in chat panel
         SPO->>Audit: Log access event
     else User is NOT authorised
         SPO-->>Agent: 403 Forbidden
-        Agent-->>Executive: "You are not authorised to access this content"
+        Agent-->>App: "You are not authorised to access this content"
     end
 
     Executive->>Agent: "Show me the draft version"
@@ -650,8 +752,9 @@ sequenceDiagram
       </div>
       <div class="legend">
         <div class="legend-item"><div class="legend-dot" style="background:#0078d4"></div>Delegated auth — agent uses the signed-in user's identity for all SharePoint queries</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#5c2d91"></div>AI assistant is accessed via the Canvas App's embedded Copilot Studio chat panel</div>
         <div class="legend-item"><div class="legend-dot" style="background:#107c10"></div>All AI responses grounded in Approved library content only — no web, no draft/review access</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#5c2d91"></div>Every query and response is captured in Purview Unified Audit Log</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#d83b01"></div>Every query and response is captured in Purview Unified Audit Log</div>
       </div>
     </div>
   </section>
