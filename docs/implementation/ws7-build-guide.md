@@ -1,0 +1,243 @@
+# WS-7: Canvas App Build Guide
+
+## Step-by-Step Instructions for Power Apps Studio
+
+This guide walks through building the ExecWorkspace Canvas App in Power Apps Studio using the Power Fx source files in `docs/implementation/ws7-powerfx/`.
+
+---
+
+## Prerequisites
+
+Before starting, confirm:
+
+- [ ] WS-1 through WS-6 are deployed and validated on the dev tenant
+- [ ] You have Power Apps Maker access in the default Power Platform environment
+- [ ] You have the Entra ID Object IDs for all 5 security groups (from `scripts/config.ps1`)
+- [ ] You have the ExecWS-ApprovedToArchive flow GUID
+- [ ] The Copilot Studio agent `ExecWorkspace-Copilot` is deployed
+
+---
+
+## Phase 1: Create the App and Solution
+
+### Step 1.1: Create a Power Platform Solution
+
+1. Go to https://make.powerapps.com
+2. Select the correct environment (dev tenant default environment)
+3. Navigate to **Solutions** → **+ New solution**
+4. Name: `ExecWorkspaceSolution`
+5. Publisher: Select or create your org publisher
+6. Save
+
+### Step 1.2: Add Environment Variables
+
+Inside the solution, add each environment variable:
+
+1. **+ New** → **More** → **Environment variable**
+2. Create each variable from the table below:
+
+| Display Name | Schema Name | Type | Value |
+|-------------|-------------|------|-------|
+| SharePoint Site URL | `env_SharePointSiteUrl` | Text | `https://<dev-tenant>.sharepoint.com/sites/exec-workspace` |
+| Draft Library | `env_DraftLibrary` | Text | `Draft` |
+| Review Library | `env_ReviewLibrary` | Text | `Review` |
+| Approved Library | `env_ApprovedLibrary` | Text | `Approved` |
+| Archive Library | `env_ArchiveLibrary` | Text | `Archive` |
+| Archive Flow ID | `env_ArchiveFlowId` | Text | `<flow-guid>` |
+| Authors Group ID | `env_AuthorsGroupId` | Text | `<group-object-id>` |
+| Reviewers Group ID | `env_ReviewersGroupId` | Text | `<group-object-id>` |
+| Executives Group ID | `env_ExecutivesGroupId` | Text | `<group-object-id>` |
+| Compliance Group ID | `env_ComplianceGroupId` | Text | `<group-object-id>` |
+| Admins Group ID | `env_AdminsGroupId` | Text | `<group-object-id>` |
+| Copilot Bot Schema | `env_CopilotBotSchemaName` | Text | `<bot-schema-name>` |
+
+### Step 1.3: Create the Canvas App
+
+1. Inside the solution, **+ New** → **App** → **Canvas app**
+2. Name: `ExecWorkspace`
+3. Format: **Tablet**
+4. Click **Create**
+5. Power Apps Studio opens
+
+---
+
+## Phase 2: Configure Data Sources
+
+In Power Apps Studio:
+
+1. **Data** panel (left sidebar) → **+ Add data**
+2. Add **SharePoint** connector:
+   - Enter site URL: `https://<dev-tenant>.sharepoint.com/sites/exec-workspace`
+   - Select lists: `Draft`, `Review`, `Approved`, `Archive`
+3. Add **Office 365 Users** connector
+4. Add **Approvals** connector
+5. Add **Power Automate** → connect the `ExecWS-ApprovedToArchive` flow and the `ExecWS-CheckUserRoles` flow
+
+---
+
+## Phase 3: Deploy the Helper Flow
+
+Before building the app, deploy the role detection helper flow:
+
+1. Go to https://make.powerautomate.com
+2. **+ Create** → **Instant cloud flow**
+3. Name: `ExecWS-CheckUserRoles`
+4. Trigger: **PowerApps (V2)**
+5. Build the flow matching `scripts/ws7-powerapp/flow-definitions/ExecWS-CheckUserRoles.json`
+6. Or import the JSON directly via REST API (see `scripts/ws5-flows/01-deploy-flows.ps1` for the pattern)
+7. Test with your own user ID to confirm it returns correct roles
+
+---
+
+## Phase 4: Build App.OnStart
+
+1. In Power Apps Studio, click on **App** in the Tree view
+2. Select the **OnStart** property
+3. Paste the formula from `docs/implementation/ws7-powerfx/App.OnStart.fx`
+4. Adapt for your environment:
+   - Use Option B (helper flow) for production-ready role detection
+   - Replace connector names with actual names from your Data panel
+5. Test by clicking **Run OnStart** in the toolbar
+
+---
+
+## Phase 5: Build Component Library
+
+### cmpNavPanel
+
+1. **Components** tab → **+ New component**
+2. Name: `cmpNavPanel`
+3. Set properties:
+   - Width: 220
+   - Height: `App.Height`
+   - Fill: `RGBA(0, 69, 120, 1)`
+4. Add custom input property: `ActiveScreen` (Text)
+5. Build the nav items per `docs/implementation/ws7-powerfx/cmpNavPanel_and_scrNoAccess.fx`
+6. Add each nav button with conditional visibility based on role flags
+
+### cmpLifecycleBadge
+
+1. **+ New component** → `cmpLifecycleBadge`
+2. Custom input property: `LifecycleState` (Text)
+3. Add a rounded rectangle and label
+4. Use the `Switch()` formula for colours from the design spec
+
+---
+
+## Phase 6: Build Screens
+
+Build screens in this order (each depends on the nav component):
+
+### 6.1: scrNoAccess
+- Simple static screen (no nav panel)
+- See `cmpNavPanel_and_scrNoAccess.fx`
+
+### 6.2: scrDashboard
+- Add `cmpNavPanel` instance (X: 0, ActiveScreen: "scrDashboard")
+- Build metrics cards, galleries, quick actions
+- See `scrDashboard.fx`
+
+### 6.3: scrDocBrowser
+- Add `cmpNavPanel` instance
+- Build tab controls, filter bar, document gallery
+- See `scrDocBrowser.fx`
+
+### 6.4: scrDocUpload
+- Add `cmpNavPanel` instance
+- Build file attachment, metadata form, derived fields
+- See `scrDocUpload.fx`
+
+### 6.5: scrDocDetail
+- Add `cmpNavPanel` instance
+- Build metadata display, version history, action buttons
+- See `scrDocDetail.fx`
+
+### 6.6: scrApprovals
+- Add `cmpNavPanel` instance
+- Build pending/history tabs, inline approve/reject
+- See `scrApprovals.fx`
+
+### 6.7: scrAIAssistant
+- Add `cmpNavPanel` instance
+- Insert Chatbot control → select ExecWorkspace-Copilot
+- Build suggested prompts panel
+- See `scrAIAssistant.fx`
+
+### 6.8: scrArchiveMgmt
+- Add `cmpNavPanel` instance
+- Build eligible/archived tabs, checkbox selection, archive trigger
+- See `scrArchiveMgmt.fx`
+
+---
+
+## Phase 7: Apply Theme
+
+In Power Apps Studio:
+
+1. **Settings** → **Display** → set app dimensions to 1366×768
+2. **Settings** → **Display** → enable **Scale to fit**
+3. Apply the colour tokens from `docs/06-ws7-app-design.md` §3
+4. Set default font to **Segoe UI** in app settings
+
+---
+
+## Phase 8: Test
+
+### Per-Persona Testing
+
+| Test | User | Steps | Expected Result |
+|------|------|-------|----------------|
+| T-1 | Author | Launch → Upload → Fill metadata → Submit | Doc in Draft with metadata |
+| T-2 | Author | Open Draft doc → Submit for Review | LifecycleState → "Review", flow fires |
+| T-3 | Reviewer | Launch → Approvals → Approve | Doc moves to Approved |
+| T-4 | Reviewer | Approvals → Reject with comments | Doc returns to Draft |
+| T-5 | Executive | Launch → Documents → Browse Approved | Only Approved docs visible |
+| T-6 | Executive | AI Assistant → Ask question | Response from approved content |
+| T-7 | Compliance | Archive Mgmt → Select → Archive | Flow triggers, doc moves |
+| T-8 | No groups | Launch app | scrNoAccess shown |
+
+### Run E2E Validation
+
+After manual testing, run: `scripts/ws7-powerapp/03-test-e2e-canvas-app.ps1`
+
+---
+
+## Phase 9: Publish and Share
+
+1. In Power Apps Studio: **File** → **Save** → **Publish**
+2. **Share** the app with the five Entra ID security groups:
+   - ExecWorkspace-Authors (Can use)
+   - ExecWorkspace-Reviewers (Can use)
+   - ExecWorkspace-Executives (Can use)
+   - ExecWorkspace-Compliance (Can use)
+   - ExecWorkspace-PlatformAdmins (Co-owner)
+3. Users can access the app at https://apps.powerapps.com
+
+---
+
+## Phase 10: Export for Version Control
+
+1. In Power Apps Studio: **File** → **Save as** → **This computer** → save `.msapp`
+2. Place in `scripts/ws7-powerapp/solution/ExecWorkspace.msapp`
+3. Export the solution: **Solutions** → `ExecWorkspaceSolution` → **Export** → **Managed**
+4. Save as `scripts/ws7-powerapp/solution/ExecWorkspaceSolution.zip`
+5. Commit both files to the repository
+
+---
+
+## File Reference
+
+| File | Purpose |
+|------|---------|
+| `docs/implementation/ws7-powerfx/App.OnStart.fx` | Role detection and initialisation formulas |
+| `docs/implementation/ws7-powerfx/scrDashboard.fx` | Dashboard screen formulas |
+| `docs/implementation/ws7-powerfx/scrDocBrowser.fx` | Document browser formulas |
+| `docs/implementation/ws7-powerfx/scrDocUpload.fx` | Upload screen formulas |
+| `docs/implementation/ws7-powerfx/scrDocDetail.fx` | Document detail formulas |
+| `docs/implementation/ws7-powerfx/scrApprovals.fx` | Approvals centre formulas |
+| `docs/implementation/ws7-powerfx/scrAIAssistant.fx` | AI assistant screen formulas |
+| `docs/implementation/ws7-powerfx/scrArchiveMgmt.fx` | Archive management formulas |
+| `docs/implementation/ws7-powerfx/cmpNavPanel_and_scrNoAccess.fx` | Nav component + fallback screen |
+| `scripts/ws7-powerapp/flow-definitions/ExecWS-CheckUserRoles.json` | Role detection helper flow |
+| `docs/06-ws7-app-design.md` | Visual design spec (wireframes, colours, components) |
+| `docs/05-ws7-lld.md` | Detailed technical design |

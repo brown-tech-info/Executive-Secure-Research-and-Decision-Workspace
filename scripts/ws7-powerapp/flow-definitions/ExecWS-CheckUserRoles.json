@@ -1,0 +1,256 @@
+{
+    "properties": {
+        "displayName": "ExecWS-CheckUserRoles",
+        "description": "Helper flow for Canvas App role detection. Checks the calling user's Entra ID group memberships against the five ExecWorkspace security groups and returns matched role names. Called from App.OnStart via Power Automate connector.",
+        "definition": {
+            "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+            "contentVersion": "1.0.0.0",
+            "triggers": {
+                "PowerApps_(V2)": {
+                    "type": "Request",
+                    "kind": "PowerApp",
+                    "inputs": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "userId": {
+                                    "title": "User Object ID",
+                                    "type": "string",
+                                    "x-ms-dynamically-added": true,
+                                    "description": "The Entra ID Object ID of the signed-in user",
+                                    "x-ms-content-hint": "TEXT"
+                                }
+                            },
+                            "required": ["userId"]
+                        }
+                    }
+                }
+            },
+            "actions": {
+                "Initialize_Roles_Array": {
+                    "type": "InitializeVariable",
+                    "inputs": {
+                        "variables": [
+                            {
+                                "name": "matchedRoles",
+                                "type": "array",
+                                "value": []
+                            }
+                        ]
+                    },
+                    "runAfter": {}
+                },
+                "Check_Group_Memberships": {
+                    "type": "Http",
+                    "inputs": {
+                        "method": "POST",
+                        "uri": "https://graph.microsoft.com/v1.0/users/@{triggerBody()?['userId']}/checkMemberGroups",
+                        "headers": {
+                            "Content-Type": "application/json"
+                        },
+                        "body": {
+                            "groupIds": [
+                                "@{parameters('AuthorsGroupId')}",
+                                "@{parameters('ReviewersGroupId')}",
+                                "@{parameters('ExecutivesGroupId')}",
+                                "@{parameters('ComplianceGroupId')}",
+                                "@{parameters('AdminsGroupId')}"
+                            ]
+                        },
+                        "authentication": {
+                            "type": "ManagedServiceIdentity",
+                            "audience": "https://graph.microsoft.com"
+                        }
+                    },
+                    "runAfter": {
+                        "Initialize_Roles_Array": ["Succeeded"]
+                    },
+                    "description": "Calls Microsoft Graph checkMemberGroups to test membership in all 5 groups in a single API call."
+                },
+                "Check_Authors": {
+                    "type": "If",
+                    "expression": {
+                        "and": [
+                            {
+                                "contains": [
+                                    "@body('Check_Group_Memberships')?['value']",
+                                    "@parameters('AuthorsGroupId')"
+                                ]
+                            }
+                        ]
+                    },
+                    "actions": {
+                        "Append_Author": {
+                            "type": "AppendToArrayVariable",
+                            "inputs": {
+                                "name": "matchedRoles",
+                                "value": "Author"
+                            }
+                        }
+                    },
+                    "runAfter": {
+                        "Check_Group_Memberships": ["Succeeded"]
+                    }
+                },
+                "Check_Reviewers": {
+                    "type": "If",
+                    "expression": {
+                        "and": [
+                            {
+                                "contains": [
+                                    "@body('Check_Group_Memberships')?['value']",
+                                    "@parameters('ReviewersGroupId')"
+                                ]
+                            }
+                        ]
+                    },
+                    "actions": {
+                        "Append_Reviewer": {
+                            "type": "AppendToArrayVariable",
+                            "inputs": {
+                                "name": "matchedRoles",
+                                "value": "Reviewer"
+                            }
+                        }
+                    },
+                    "runAfter": {
+                        "Check_Group_Memberships": ["Succeeded"]
+                    }
+                },
+                "Check_Executives": {
+                    "type": "If",
+                    "expression": {
+                        "and": [
+                            {
+                                "contains": [
+                                    "@body('Check_Group_Memberships')?['value']",
+                                    "@parameters('ExecutivesGroupId')"
+                                ]
+                            }
+                        ]
+                    },
+                    "actions": {
+                        "Append_Executive": {
+                            "type": "AppendToArrayVariable",
+                            "inputs": {
+                                "name": "matchedRoles",
+                                "value": "Executive"
+                            }
+                        }
+                    },
+                    "runAfter": {
+                        "Check_Group_Memberships": ["Succeeded"]
+                    }
+                },
+                "Check_Compliance": {
+                    "type": "If",
+                    "expression": {
+                        "and": [
+                            {
+                                "contains": [
+                                    "@body('Check_Group_Memberships')?['value']",
+                                    "@parameters('ComplianceGroupId')"
+                                ]
+                            }
+                        ]
+                    },
+                    "actions": {
+                        "Append_Compliance": {
+                            "type": "AppendToArrayVariable",
+                            "inputs": {
+                                "name": "matchedRoles",
+                                "value": "Compliance"
+                            }
+                        }
+                    },
+                    "runAfter": {
+                        "Check_Group_Memberships": ["Succeeded"]
+                    }
+                },
+                "Check_Admins": {
+                    "type": "If",
+                    "expression": {
+                        "and": [
+                            {
+                                "contains": [
+                                    "@body('Check_Group_Memberships')?['value']",
+                                    "@parameters('AdminsGroupId')"
+                                ]
+                            }
+                        ]
+                    },
+                    "actions": {
+                        "Append_Admin": {
+                            "type": "AppendToArrayVariable",
+                            "inputs": {
+                                "name": "matchedRoles",
+                                "value": "Admin"
+                            }
+                        }
+                    },
+                    "runAfter": {
+                        "Check_Group_Memberships": ["Succeeded"]
+                    }
+                },
+                "Respond_to_PowerApp": {
+                    "type": "Response",
+                    "kind": "PowerApp",
+                    "inputs": {
+                        "statusCode": 200,
+                        "body": {
+                            "roles": "@{join(variables('matchedRoles'), ',')}"
+                        },
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "roles": {
+                                    "title": "Matched Roles",
+                                    "type": "string",
+                                    "x-ms-content-hint": "TEXT",
+                                    "description": "Comma-separated list of matched role names (Author,Reviewer,Executive,Compliance,Admin)"
+                                }
+                            }
+                        }
+                    },
+                    "runAfter": {
+                        "Check_Authors": ["Succeeded"],
+                        "Check_Reviewers": ["Succeeded"],
+                        "Check_Executives": ["Succeeded"],
+                        "Check_Compliance": ["Succeeded"],
+                        "Check_Admins": ["Succeeded"]
+                    }
+                }
+            },
+            "parameters": {
+                "AuthorsGroupId": {
+                    "type": "string",
+                    "defaultValue": "<authors-group-object-id>"
+                },
+                "ReviewersGroupId": {
+                    "type": "string",
+                    "defaultValue": "<reviewers-group-object-id>"
+                },
+                "ExecutivesGroupId": {
+                    "type": "string",
+                    "defaultValue": "<executives-group-object-id>"
+                },
+                "ComplianceGroupId": {
+                    "type": "string",
+                    "defaultValue": "<compliance-group-object-id>"
+                },
+                "AdminsGroupId": {
+                    "type": "string",
+                    "defaultValue": "<admins-group-object-id>"
+                }
+            }
+        },
+        "connectionReferences": {
+            "shared_office365groups": {
+                "connectionName": "shared-office365groups",
+                "source": "Embedded",
+                "id": "/providers/Microsoft.PowerApps/apis/shared_office365groups",
+                "tier": "NotSpecified"
+            }
+        }
+    }
+}
