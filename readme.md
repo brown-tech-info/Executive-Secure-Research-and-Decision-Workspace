@@ -125,6 +125,12 @@ WS-6: Copilot Studio Agent
   │     ExecWorkspace-Copilot.yaml
   ├── 01-validate-copilot.ps1           ← pre-flight checks
   └── 02-deploy-copilot-agent.ps1
+
+WS-7: Power Apps Canvas App
+  ├── solution/
+  │     ExecWorkspaceSolution/          ← managed solution package
+  ├── 01-deploy-canvas-app.ps1          ← solution import, env vars, sharing
+  └── 02-validate-canvas-app.ps1        ← post-deployment validation
 ```
 
 > **See `scripts/README.md`** for full script reference, parameter documentation, and module requirements.
@@ -142,6 +148,9 @@ docs/
   01-requirements.md           Functional and non-functional requirements
   02-hld.md                    High-Level Design: architecture and service composition
   03-lld.md                    Low-Level Design: concrete configuration and enforcement
+  04-ws7-requirements.md       WS-7 Power Apps Canvas App requirements
+  05-ws7-lld.md                WS-7 Canvas App low-level design (screens, connectors, formulas)
+  06-ws7-app-design.md         WS-7 Canvas App design specification (wireframes, theme, components)
   deployment-guide.md          Step-by-step deployment guide for all phases
   ws6-copilot-studio-spec.md   Supplementary reference for the Copilot Studio agent design
 
@@ -153,6 +162,7 @@ scripts/
   ws4-purview/                 Audit log, retention labels, eDiscovery
   ws5-flows/                   Power Automate flow definitions and deployment
   ws6-copilot/                 Copilot Studio agent definition and deployment
+  ws7-powerapp/                Power Apps Canvas App solution and deployment
 
 readme.md                      This document
 ```
@@ -208,6 +218,7 @@ All AI-assisted work must align with `.github/copilot-instructions.md`. Key cons
 | WS-4: Purview audit, retention, eDiscovery | ✅ Deployed and validated |
 | WS-5: Power Automate lifecycle flows | ✅ Deployed and live — all 4 flows active, E2E test 9/9 PASS |
 | WS-6: Copilot Studio agent | ✅ Deployed — agent live, knowledge source connected, web search OFF, Entra ID auth enforced |
+| WS-7: Power Apps Canvas App | 📐 Design complete — requirements, LLD, app design spec ready; implementation pending |
 | Production promotion | ⏳ Pending dev validation sign-off |
 
 ---

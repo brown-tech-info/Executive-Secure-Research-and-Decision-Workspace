@@ -24,19 +24,21 @@ SharePoint Online as the secure content backbone and executive workspace
 Power Automate for workflow orchestration, approvals, and lifecycle automation
 Microsoft Purview for audit logging, retention, and eDiscovery
 Microsoft 365 Copilot / Copilot Studio for AI‑assisted summarisation and insight over approved content
+Power Apps Canvas App as the executive-grade user interface across all personas
 
 All services operate entirely within the organisation's Microsoft 365 tenant boundary. [microsofte...epoint.com]
 
 4. Logical Architecture
 The logical flow of the solution is as follows:
 Executive Users
-→ Microsoft Entra ID
+→ Power Apps Canvas App (role-based UI)
+→ Microsoft Entra ID (authentication, Conditional Access, group-based role detection)
 → Secure SharePoint Workspace
 → Document Libraries (Draft, Review, Approved, Archive)
-→ Power Automate Workflows
+→ Power Automate Workflows (lifecycle transitions, approvals)
 → Microsoft Purview (Audit & Retention)
-→ Scoped Copilot Agent
-This logical architecture directly maps to the document lifecycle and process flow defined in the requirements and process flow diagrams. [microsofte...epoint.com]
+→ Scoped Copilot Agent (embedded in Canvas App)
+This logical architecture directly maps to the document lifecycle and process flow defined in the requirements and process flow diagrams. The Canvas App is a presentation layer only — all data, governance, and automation remain in their respective M365 services. [microsofte...epoint.com]
 
 5. Workspace Design (HLD)
 5.1 Site Type
@@ -117,12 +119,76 @@ eDiscovery supported without data duplication or export
 
 This provides defensible compliance aligned with regulatory and research governance needs. [microsofte...epoint.com]
 
-10. Extensibility
+10. Executive User Interface (HLD)
+
+10.1 Approach
+The executive user interface is delivered through a Power Apps Canvas App — a native Microsoft 365 low-code application that provides pixel-level control over the user experience. This replaces direct SharePoint library navigation with a purpose-built, role-aware application.
+
+10.2 Design Rationale
+Canvas App was selected over other options for the following reasons:
+
+Power Apps is a native M365 service — no third-party dependency
+Delegated authentication inherits the user's Entra ID identity, Conditional Access policies, and group-based permissions
+Standard connectors (SharePoint, Approvals, Office 365 Users, Power Automate) are included in M365 E5 licensing
+Low-code approach aligns with the "Configuration over custom code" architectural principle
+Canvas Apps offer full layout control optimised for executive-grade clarity and low cognitive load
+
+10.3 Architecture
+The Canvas App connects to existing M365 services via standard connectors:
+
+SharePoint connector — read/write document libraries and metadata
+Office 365 Users connector — resolve signed-in user's group membership for role detection
+Approvals connector — display and action pending approval tasks inline
+Power Automate connector — trigger the ExecWS-ApprovedToArchive flow
+Copilot Studio — embedded AI chat panel scoped to the Approved library
+
+The app introduces no new data stores. SharePoint remains the single source of truth for all content and metadata.
+
+10.4 Role-Based Experience
+A single app serves all personas. On launch, the app detects the user's Entra ID security group membership and presents role-appropriate screens:
+
+Authors — document upload, Draft library management, review submission
+Reviewers — approval queue, inline approve/reject, approval history
+Executives — approved pack browsing, dashboard, embedded AI assistant
+Compliance — archive management, retention status, approved content browsing
+
+10.5 Screens
+The app comprises seven screens:
+
+Dashboard (Home) — metrics, upcoming meetings, recent approvals, quick actions
+Document Browser — role-filtered galleries with meeting-cadence filtering and sorting
+Document Upload — file upload with metadata form, validation, and auto-naming (Authors only)
+Document Detail — full metadata, version history, lifecycle actions
+Approvals Centre — pending tasks, inline approve/reject, history (Reviewers)
+AI Assistant — embedded Copilot Studio chat panel (Executives)
+Archive Management — archival triggers, retention browser (Compliance)
+
+10.6 Security Model
+The Canvas App inherits and reinforces the existing security model:
+
+Delegated identity — all connector calls use the signed-in user's Entra ID token
+Conditional Access — MFA and compliant device requirements apply automatically
+Library permissions — SharePoint enforces server-side access control; the app cannot bypass it
+Approval integrity — all approvals route through the Approvals connector and Power Automate
+AI scoping — the Copilot Studio agent enforces Approved-only, read-only constraints independently
+
+10.7 Form Factors
+The app is optimised for desktop (1920×1080) and tablet (1024×768) form factors. Mobile phone is out of scope for v1.
+
+10.8 Distribution
+The app is distributed as a standalone Power App accessible via the Power Apps portal (apps.powerapps.com). Teams and SharePoint embedding are deferred to a future release.
+
+See `docs/04-ws7-requirements.md` for the full functional and non-functional requirements specification.
+See `docs/05-ws7-lld.md` for the detailed low-level design.
+
+11. Extensibility
 The architecture supports future enhancements, including:
 
 Executive dashboards using SPFx
 Structured agendas using Loop components
 Integration with meeting notes or task tracking tools
 Additional Copilot agent skills
+Teams and SharePoint embedding of the Canvas App
+Mobile form factor support
 
 All extensions must continue to adhere to the architectural principles defined in this document.
