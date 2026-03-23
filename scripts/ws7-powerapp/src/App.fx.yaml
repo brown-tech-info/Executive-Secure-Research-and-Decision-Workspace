@@ -1,28 +1,26 @@
-App As AppType:
+App As appinfo:
+    BackEnabled: =true
+    Theme: =PowerAppsTheme
     OnStart: |-
         =// ═══════════════════════════════════════════════════════════════
         // ExecWorkspace — Role Detection & Initialisation
         // ═══════════════════════════════════════════════════════════════
-
         // 1. Get current user profile
         Set(gblCurrentUser, Office365Users.MyProfileV2());
         Set(gblUserDisplayName, gblCurrentUser.displayName);
         Set(gblUserEmail, gblCurrentUser.mail);
         Set(gblUserId, gblCurrentUser.id);
-
         // 2. Check roles via helper flow (single Graph API call)
         Set(
             gblUserRolesResult,
             ExecWSCheckUserRoles.Run(gblUserId)
         );
         Set(gblUserRolesText, gblUserRolesResult.roles);
-
         Set(gblIsAuthor, "Author" in gblUserRolesText);
         Set(gblIsReviewer, "Reviewer" in gblUserRolesText);
         Set(gblIsExecutive, "Executive" in gblUserRolesText);
         Set(gblIsCompliance, "Compliance" in gblUserRolesText);
         Set(gblIsAdmin, "Admin" in gblUserRolesText);
-
         // 3. Determine access
         Set(
             gblHasRole,
@@ -39,7 +37,6 @@ App As AppType:
                 "No Access"
             )
         );
-
         // 4. Load dashboard data if authorised
         If(
             gblHasRole,
@@ -52,7 +49,6 @@ App As AppType:
             Navigate(scrDashboard, ScreenTransition.None),
             Navigate(scrNoAccess, ScreenTransition.None)
         );
-
     OnError: |-
         =If(
             FirstError.Kind = ErrorKind.Network,
@@ -64,3 +60,10 @@ App As AppType:
                 NotificationType.Error
             )
         );
+
+    Host As hostControl.DefaultHostControlVariant:
+        OnCancel: =false
+        OnEdit: =false
+        OnNew: =false
+        OnSave: =false
+        OnView: =false

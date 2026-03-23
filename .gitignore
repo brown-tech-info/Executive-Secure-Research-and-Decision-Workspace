@@ -53,3 +53,6 @@ scripts/deploy-cert.cer
 
 # Local reference images — not part of the codebase
 error images/
+
+# WS-7 build artifacts
+scripts/ws7-powerapp/build/

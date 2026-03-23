@@ -227,7 +227,7 @@ scrDashboard As Screen:
             FontWeight: =FontWeight.Semibold
             Color: =RGBA(50, 49, 48, 1)
 
-        icoMeetingType As Classic/Icon:
+        icoMeetingType As icon:
             Icon: |-
                 =Switch(
                     ThisItem.ExecWS_MeetingType.Value,

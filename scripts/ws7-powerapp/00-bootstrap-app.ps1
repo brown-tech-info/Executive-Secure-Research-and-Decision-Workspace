@@ -53,9 +53,7 @@ param(
     [Parameter(Mandatory)]
     [string]$EnvironmentId,
 
-    [string]$AppDisplayName = "ExecWorkspace",
-
-    [switch]$WhatIf
+    [string]$AppDisplayName = "ExecWorkspace"
 )
 
 $ErrorActionPreference = "Stop"
@@ -157,7 +155,7 @@ Write-Host @"
 
 "@ -ForegroundColor Yellow
 
-if (-not $WhatIf) {
+if (-not $WhatIfPreference) {
     Read-Host "Press ENTER after creating the Canvas App shell in Studio"
 }
 
@@ -199,12 +197,20 @@ if ($PSCmdlet.ShouldProcess($MergedDir, "Merge source files")) {
     Copy-Item -Path "$UnpackDir\*" -Destination $MergedDir -Recurse -Force
     Write-Host "  Copied Studio configs (DataSources, Connections, manifest, entropy)" -ForegroundColor Green
 
-    # Overwrite screen files with our .fx.yaml sources
+    # Overwrite screen files with our .fx.yaml sources (into Src/ subdirectory)
     $fxFiles = Get-ChildItem -Path $SrcDir -Filter "*.fx.yaml" -File
+    $mergedSrcDir = Join-Path $MergedDir "Src"
     foreach ($fxFile in $fxFiles) {
-        $destPath = Join-Path $MergedDir $fxFile.Name
+        $destPath = Join-Path $mergedSrcDir $fxFile.Name
         Copy-Item -Path $fxFile.FullName -Destination $destPath -Force
         Write-Host "  Merged: $($fxFile.Name)" -ForegroundColor Green
+    }
+
+    # Remove the Studio-generated Screen1 (replaced by our screens)
+    $screen1Path = Join-Path $mergedSrcDir "Screen1.fx.yaml"
+    if (Test-Path $screen1Path) {
+        Remove-Item $screen1Path -Force
+        Write-Host "  Removed: Screen1.fx.yaml (replaced by custom screens)" -ForegroundColor Yellow
     }
 
     # Copy CanvasManifest.json (our version with screen order)
@@ -218,7 +224,13 @@ if ($PSCmdlet.ShouldProcess($MergedDir, "Merge source files")) {
 
             # Preserve Studio-generated IDs, merge our screen order
             $studio.ScreenOrder = $ours.ScreenOrder
-            $studio.Properties.Description = $ours.Properties.Description
+            if ($ours.Properties.PSObject.Properties['AppDescription']) {
+                $studio.Properties.AppDescription = $ours.Properties.AppDescription
+            }
+            if ($ours.Properties.PSObject.Properties['Description'] -and
+                $studio.Properties.PSObject.Properties['AppDescription']) {
+                $studio.Properties.AppDescription = $ours.Properties.Description
+            }
             $studio | ConvertTo-Json -Depth 10 | Set-Content $studioManifest -Encoding UTF8
             Write-Host "  Merged CanvasManifest.json (preserved Studio IDs, updated screen order)" -ForegroundColor Green
         }

@@ -43,9 +43,7 @@
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [ValidateSet("full", "pack-only")]
-    [string]$Mode = "full",
-
-    [switch]$WhatIf
+    [string]$Mode = "full"
 )
 
 $ErrorActionPreference = "Stop"
@@ -125,7 +123,7 @@ if ($Mode -eq "full") {
 # ──────────────────────────────────────────────
 Write-Host "[2/5] Packing Canvas App source → .msapp..." -ForegroundColor Yellow
 
-if ($WhatIf) {
+if ($WhatIfPreference) {
     Write-Host "  [WhatIf] Would pack $MergedDir → $MsappFile" -ForegroundColor DarkGray
 } else {
     New-Item -ItemType Directory -Path $BuildDir -Force | Out-Null
@@ -151,7 +149,7 @@ if ($Mode -eq "pack-only") {
 # ──────────────────────────────────────────────
 Write-Host "[3/5] Uploading Canvas App to Power Platform..." -ForegroundColor Yellow
 
-if ($WhatIf) {
+if ($WhatIfPreference) {
     Write-Host "  [WhatIf] Would upload $MsappFile to environment $PowerPlatformEnvironmentId" -ForegroundColor DarkGray
 } else {
     # pac canvas upload is not currently available — use pac solution import if wrapped in solution,
@@ -199,7 +197,7 @@ $groups = @(
 )
 
 foreach ($group in $groups) {
-    if ($WhatIf) {
+    if ($WhatIfPreference) {
         Write-Host "  [WhatIf] Would share app with $($group.Name) (Role: $($group.Role))" -ForegroundColor DarkGray
     } else {
         # App sharing requires the Power Apps Admin API or manual Studio configuration.
@@ -217,7 +215,7 @@ foreach ($group in $groups) {
 # ──────────────────────────────────────────────
 Write-Host "[5/5] Validating deployment..." -ForegroundColor Yellow
 
-if ($WhatIf) {
+if ($WhatIfPreference) {
     Write-Host "  [WhatIf] Would validate .msapp integrity and app accessibility" -ForegroundColor DarkGray
 } else {
     # Validate .msapp exists and is non-trivial

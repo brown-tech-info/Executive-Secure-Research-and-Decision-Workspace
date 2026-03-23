@@ -141,17 +141,13 @@ scrAIAssistant As Screen:
         Color: =RGBA(96, 94, 92, 1)
         Align: =Align.Center
 
-    // ═══════════════════════════════════════════════════════════════
-    // NOTE: The Copilot Studio Chatbot control must be added
-    // manually in Power Apps Studio after importing the .msapp:
-    //
-    // 1. Insert → AI → Chatbot
-    // 2. Select "ExecWorkspace-Copilot" from the agent list
-    // 3. Position: X=If(locShowPromptPanel, 510, 240), Y=80
-    // 4. Size: Width=Parent.Width - If(locShowPromptPanel, 534, 264)
-    //          Height=Parent.Height - 120
-    //
-    // The Chatbot control is not available in the .fx.yaml format
-    // because it requires runtime environment binding to the specific
-    // Copilot Studio bot instance.
-    // ═══════════════════════════════════════════════════════════════
+    lblCopilotNote As Label:
+        Text: ="NOTE: Add Copilot Studio chatbot control here via Studio (Insert > AI > Chatbot > ExecWorkspace-Copilot)"
+        X: =If(locShowPromptPanel && !locAIFullScreen, 510, 240)
+        Y: =80
+        Width: =Parent.Width - If(locShowPromptPanel && !locAIFullScreen, 534, 264)
+        Height: =Parent.Height - 120
+        Size: =14
+        Color: =RGBA(96, 94, 92, 0.5)
+        Align: =Align.Center
+        Visible: =false

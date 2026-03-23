@@ -1,7 +1,7 @@
 scrNoAccess As Screen:
     Fill: =RGBA(250, 249, 248, 1)
 
-    icoLock As Classic/Icon:
+    icoLock As icon:
         Icon: =Icon.Lock
         X: =(Parent.Width - 64) / 2
         Y: =Parent.Height / 2 - 120

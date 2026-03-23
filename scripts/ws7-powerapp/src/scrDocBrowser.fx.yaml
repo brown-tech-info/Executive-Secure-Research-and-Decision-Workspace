@@ -208,7 +208,7 @@ scrDocBrowser As Screen:
             Size: =11
             Color: =RGBA(96, 94, 92, 1)
 
-        icoGalChevron As Classic/Icon:
+        icoGalChevron As icon:
             Icon: =Icon.ChevronRight
             X: =Parent.TemplateWidth - 32
             Y: =20
