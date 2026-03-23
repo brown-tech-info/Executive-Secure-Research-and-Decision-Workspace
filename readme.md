@@ -218,7 +218,7 @@ All AI-assisted work must align with `.github/copilot-instructions.md`. Key cons
 | WS-4: Purview audit, retention, eDiscovery | ✅ Deployed and validated |
 | WS-5: Power Automate lifecycle flows | ✅ Deployed and live — all 4 flows active, E2E test 9/9 PASS |
 | WS-6: Copilot Studio agent | ✅ Deployed — agent live, knowledge source connected, web search OFF, Entra ID auth enforced |
-| WS-7: Power Apps Canvas App | 📐 Design complete — requirements, LLD, app design spec ready; implementation pending |
+| WS-7: Power Apps Canvas App | 🏗️ In progress — all 8 screens built via Studio Code View paste; formula fixes and nav panel remaining |
 | Production promotion | ⏳ Pending dev validation sign-off |
 
 ---
